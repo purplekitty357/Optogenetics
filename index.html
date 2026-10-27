@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>광유전학 1형 당뇨병 치료 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin: 0 0 4px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 16px; font-size: 14px; text-align: center; }
+        .layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            max-width: 1250px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        #control-panel {
+            background: #e0e0e0;
+            border-radius: 16px;
+            padding: 16px 20px;
+            width: 320px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        #control-panel h3 {
+            margin: 14px 0 6px;
+            font-size: 15px;
+            border-bottom: 1px solid #bbb;
+            padding-bottom: 4px;
+        }
+        #control-panel h3:first-child { margin-top: 0; }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin: 5px 0;
+            gap: 8px;
+        }
+        .row input[type=range] { width: 120px; }
+        .row .val { width: 52px; text-align: right; font-weight: bold; }
+        .row select { font-size: 13px; max-width: 170px; }
+        .tag { font-size: 11px; color: #777; }
+        .main { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 16px; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            padding: 12px 16px;
+        }
+        .card h2 { margin: 0 0 8px; font-size: 16px; }
+        canvas { display: block; width: 100%; }
+        .legend { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; margin-bottom: 6px; }
+        .legend span::before {
+            content: '';
+            display: inline-block;
+            width: 14px; height: 4px;
+            margin-right: 5px;
+            vertical-align: middle;
+            background: var(--c);
+        }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
+        th { background: #dde9f5; }
+        .formula { font-family: monospace; font-size: 12px; background: #f7f7f7; padding: 2px 6px; border-radius: 4px; }
+        ul.notes { font-size: 13px; line-height: 1.6; margin: 0; padding-left: 18px; }
+    </style>
+</head>
+<body>
+    <h1>광유전학을 통한 1형 당뇨병 치료 시뮬레이터</h1>
+    <div class="subtitle">빛 자극 → β세포 활성화 → 인슐린 분비 → 혈당 감소 과정을 시간에 따라 반복 계산하고, 주사 방식과 비교합니다.</div>
+
+    <div class="layout">
+        <div id="control-panel">
+            <h3>모델 선택</h3>
+            <div class="row">혈당 식
+                <select id="glucoseModel">
+                    <option value="bergman">1.1 Bergman (실제)</option>
+                    <option value="simple">2.4 단순식 (임의 변형)</option>
+                </select>
+            </div>
+            <div class="row">빛-인슐린 분비
+                <select id="secretionModel">
+                    <option value="glucose">2.2 α·A·G</option>
+                    <option value="linear">2.2 α·A</option>
+                    <option value="hill">2.3 α·A·SG(G)</option>
+                </select>
+            </div>
+            <div class="row">주사 흡수
+                <select id="injectionModel">
+                    <option value="two">1.3 2구획 (실제)</option>
+                    <option value="one">2.5 1구획 (임의 변형)</option>
+                </select>
+            </div>
+
+            <h3>환자 / 식사</h3>
+            <div id="sliders-meal"></div>
+
+            <h3>빛 자극 (광유전학)</h3>
+            <div id="sliders-light"></div>
+
+            <h3>인슐린 주사</h3>
+            <div id="sliders-inj"></div>
+        </div>
+
+        <div class="main">
+            <div class="card">
+                <h2>혈당 G(t) 비교</h2>
+                <div class="legend">
+                    <span style="--c:#95a5a6">무치료</span>
+                    <span style="--c:#8e44ad">광유전학 (빛 자극)</span>
+                    <span style="--c:#e67e22">인슐린 주사</span>
+                    <span style="--c:rgba(46,204,113,0.5)">목표 범위 70~180 mg/dL</span>
+                </div>
+                <canvas id="chartG" height="300"></canvas>
+            </div>
+            <div class="card">
+                <h2>혈중 인슐린 I(t)</h2>
+                <canvas id="chartI" height="200"></canvas>
+            </div>
+            <div class="card">
+                <h2>빛 자극 L(t)과 β세포 활성도 A(t)</h2>
+                <div class="legend">
+                    <span style="--c:rgba(52,152,219,0.35)">빛 켜짐 L=1</span>
+                    <span style="--c:#2980b9">활성도 A(t)</span>
+                </div>
+                <canvas id="chartA" height="150"></canvas>
+            </div>
+            <div class="card">
+                <h2>결과 비교</h2>
+                <table id="summary"></table>
+            </div>
+            <div class="card">
+                <h2>사용한 수식</h2>
+                <ul class="notes">
+                    <li>빛 활성화 (2.1): <span class="formula">dA/dt = kon·L(t)·(1-A) - koff·A</span></li>
+                    <li>빛-인슐린 분비 (2.2, 2.3): <span class="formula">u_light = u_basal + α·A·G</span> / <span class="formula">u_basal + α·A</span> / <span class="formula">u_basal + α·A·SG(G)</span>, <span class="formula">SG(G) = Smax·G^n/(G50^n+G^n)</span></li>
+                    <li>혈중 인슐린 (1.1): <span class="formula">dI/dt = -n(I - Ib) + u(t)</span></li>
+                    <li>혈당 (1.1): <span class="formula">dG/dt = Rfood - p1(G - Gb) - X·G</span>, <span class="formula">dX/dt = -p2·X + p3(I - Ib)</span></li>
+                    <li>혈당 (2.4): <span class="formula">dG/dt = Rfood - kbasal·G - kinsulin·I·G</span></li>
+                    <li>식사 (1.2): <span class="formula">Rfood = UG(t)/VG</span>, <span class="formula">UG(t) = DG·AG·t·e^(-t/tmax,G)/tmax,G²</span></li>
+                    <li>주사 (1.3): <span class="formula">dS1/dt = u - S1/tmax,I</span>, <span class="formula">dS2/dt = S1/tmax,I - S2/tmax,I</span>, <span class="formula">U = S2/tmax,I</span></li>
+                    <li>주사 (2.5): <span class="formula">dSsc/dt = -ka·Ssc + Dinj·δ(t-tinj)</span>, <span class="formula">dI/dt = ka·Ssc - ke·I</span> (ke = n)</li>
+                    <li>계산: 오일러 방법으로 Δt = 0.5분마다 <span class="formula">값(t+Δt) = 값(t) + 변화율·Δt</span> 를 반복합니다.</li>
+                    <li>파라미터 기본값은 자료에 수치가 없어 시연용으로 정한 값입니다. 광유전학 부분(2.x)은 실제 논문 공식이 아닌 임의 변형 모델입니다.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="model.js"></script>
+    <script>
+        const params = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+
+        // 슬라이더 정의: [그룹, 키, 이름, 최소, 최대, 간격, 표시 변환]
+        const sliderDefs = [
+            ['meal', 'G0', '초기 혈당 (mg/dL)', 60, 350, 5],
+            ['meal', 'carbs0', '아침 탄수화물 (g)', 0, 150, 5],
+            ['meal', 'carbs1', '점심 탄수화물 (g)', 0, 150, 5],
+            ['meal', 'carbs2', '저녁 탄수화물 (g)', 0, 150, 5],
+            ['light', 'kon', 'kon 활성화 속도', 0.05, 2, 0.05],
+            ['light', 'koff', 'koff 비활성화 속도', 0.01, 0.5, 0.01],
+            ['light', 'alpha', 'α 분비 증가 정도', 0, 3, 0.05],
+            ['light', 'lightDelay', '식후 점등 시작 (분)', -30, 90, 5],
+            ['light', 'lightDuration', '점등 시간 (분)', 0, 300, 10],
+            ['inj', 'insulinPerCarb', '인슐린 1U 당 탄수화물 (g)', 5, 30, 1],
+            ['inj', 'injDelay', '식후 주사 시점 (분)', -30, 60, 5],
+            ['inj', 'tmaxI', 'tmax,I 흡수 최대 시간 (분)', 20, 120, 5],
+            ['inj', 'ka', 'ka 흡수율 (1구획)', 0.005, 0.1, 0.005],
+        ];
+
+        // α 는 분비 모델마다 단위가 달라서 기본값 대비 배율로 조절한다
+        const alphaKey = { linear: 'alphaLinear', glucose: 'alphaGlucose', hill: 'alphaHill' };
+        let alphaScale = 1;
+
+        function getValue(key) {
+            if (key.startsWith('carbs')) return params.meals[+key.slice(5)].carbs;
+            if (key === 'alpha') return alphaScale;
+            if (key === 'insulinPerCarb') return Math.round(1 / params.insulinPerCarb);
+            return params[key];
+        }
+        function setValue(key, v) {
+            if (key.startsWith('carbs')) params.meals[+key.slice(5)].carbs = v;
+            else if (key === 'alpha') {
+                alphaScale = v;
+                for (const k of Object.values(alphaKey)) params[k] = DEFAULT_PARAMS[k] * v;
+            }
+            else if (key === 'insulinPerCarb') params.insulinPerCarb = 1 / v;
+            else params[key] = v;
+        }
+
+        for (const [group, key, label, min, max, step] of sliderDefs) {
+            const row = document.createElement('div');
+            row.className = 'row';
+            const decimals = step < 1 ? String(step).split('.')[1].length : 0;
+            row.innerHTML = `<span>${label}${key === 'alpha' ? ' <span class="tag">(기본값 배율)</span>' : ''}</span>
+                <input type="range" min="${min}" max="${max}" step="${step}" value="${getValue(key)}">
+                <span class="val">${getValue(key).toFixed(decimals)}</span>`;
+            const input = row.querySelector('input');
+            const out = row.querySelector('.val');
+            input.addEventListener('input', () => {
+                setValue(key, parseFloat(input.value));
+                out.textContent = parseFloat(input.value).toFixed(decimals);
+                run();
+            });
+            document.getElementById('sliders-' + group).appendChild(row);
+        }
+        for (const id of ['glucoseModel', 'secretionModel', 'injectionModel']) {
+            document.getElementById(id).addEventListener('change', e => { params[id] = e.target.value; run(); });
+        }
+
+        const COLORS = { none: '#95a5a6', light: '#8e44ad', injection: '#e67e22' };
+
+        function setupCanvas(canvas) {
+            const ratio = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth, h = parseInt(canvas.getAttribute('height'));
+            canvas.width = w * ratio;
+            canvas.height = h * ratio;
+            canvas.style.height = h + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            return { ctx, w, h };
+        }
+
+        // 공통 축 그리기. 반환값: 좌표 변환 함수
+        function drawAxes(ctx, w, h, yMax, yLabel, yTicks) {
+            const pad = { l: 50, r: 12, t: 10, b: 28 };
+            const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+            const x = t => pad.l + (t / params.duration) * pw;
+            const y = v => pad.t + ph - (v / yMax) * ph;
+            ctx.clearRect(0, 0, w, h);
+            ctx.font = '11px sans-serif';
+            ctx.strokeStyle = '#eee';
+            ctx.fillStyle = '#666';
+            ctx.lineWidth = 1;
+            ctx.textAlign = 'right';
+            for (const v of yTicks) {
+                ctx.beginPath(); ctx.moveTo(pad.l, y(v)); ctx.lineTo(w - pad.r, y(v)); ctx.stroke();
+                ctx.fillText(v, pad.l - 6, y(v) + 4);
+            }
+            ctx.textAlign = 'center';
+            for (let m = 0; m <= params.duration; m += 120) {
+                ctx.beginPath(); ctx.moveTo(x(m), pad.t); ctx.lineTo(x(m), pad.t + ph); ctx.stroke();
+                const hour = (params.startHour + m / 60) % 24;
+                ctx.fillText(hour + ':00', x(m), h - 10);
+            }
+            ctx.save();
+            ctx.translate(12, pad.t + ph / 2); ctx.rotate(-Math.PI / 2);
+            ctx.fillText(yLabel, 0, 0);
+            ctx.restore();
+            return { x, y, pad, pw, ph };
+        }
+
+        function drawLine(ctx, ax, ts, vs, color, width = 2) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            for (let i = 0; i < ts.length; i++) {
+                const px = ax.x(ts[i]), py = ax.y(vs[i]);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        function niceMax(v, step) { return Math.ceil(v / step) * step; }
+        function ticks(max, step) { const a = []; for (let v = 0; v <= max; v += step) a.push(v); return a; }
+
+        function drawMealMarks(ctx, ax) {
+            ctx.fillStyle = '#c0392b';
+            ctx.textAlign = 'center';
+            for (const meal of params.meals) {
+                if (meal.carbs <= 0) continue;
+                ctx.fillText('🍚' + meal.carbs + 'g', ax.x(meal.t), ax.pad.t + 12);
+            }
+        }
+
+        function run() {
+            const results = {
+                none: simulate('none', params),
+                light: simulate('light', params),
+                injection: simulate('injection', params),
+            };
+
+            // 혈당 그래프
+            {
+                const { ctx, w, h } = setupCanvas(document.getElementById('chartG'));
+                const maxG = Math.max(300, ...Object.values(results).map(r => Math.max(...r.G)));
+                const yMax = niceMax(maxG, 50);
+                const ax = drawAxes(ctx, w, h, yMax, '혈당 (mg/dL)', ticks(yMax, yMax > 400 ? 100 : 50));
+                ctx.fillStyle = 'rgba(46,204,113,0.12)';
+                ctx.fillRect(ax.pad.l, ax.y(180), ax.pw, ax.y(70) - ax.y(180));
+                for (const mode of ['none', 'light', 'injection']) drawLine(ctx, ax, results[mode].t, results[mode].G, COLORS[mode]);
+                drawMealMarks(ctx, ax);
+                ctx.fillStyle = COLORS.injection;
+                for (const d of results.injection.doses) {
+                    ctx.fillText('💉' + d.units.toFixed(1) + 'U', ax.x(d.t), ax.pad.t + ax.ph - 6);
+                }
+            }
+
+            // 인슐린 그래프
+            {
+                const { ctx, w, h } = setupCanvas(document.getElementById('chartI'));
+                const maxI = Math.max(10, ...['light', 'injection'].map(m => Math.max(...results[m].I)));
+                const yMax = niceMax(maxI, 10);
+                const ax = drawAxes(ctx, w, h, yMax, '인슐린 (μU/mL)', ticks(yMax, yMax > 60 ? 20 : 10));
+                for (const mode of ['none', 'light', 'injection']) drawLine(ctx, ax, results[mode].t, results[mode].I, COLORS[mode]);
+            }
+
+            // 빛 / 활성도 그래프
+            {
+                const { ctx, w, h } = setupCanvas(document.getElementById('chartA'));
+                const ax = drawAxes(ctx, w, h, 1, 'A', [0, 0.5, 1]);
+                const r = results.light;
+                ctx.fillStyle = 'rgba(52,152,219,0.18)';
+                for (let i = 0; i < r.t.length - 1; i++) {
+                    if (r.L[i]) ctx.fillRect(ax.x(r.t[i]), ax.y(1), ax.x(r.t[i + 1]) - ax.x(r.t[i]) + 0.5, ax.ph);
+                }
+                drawLine(ctx, ax, r.t, r.A, '#2980b9');
+            }
+
+            // 요약 표
+            const names = { none: '무치료', light: '광유전학 (빛 자극)', injection: '인슐린 주사' };
+            let html = '<tr><th>방식</th><th>평균 혈당</th><th>최고</th><th>최저</th><th>목표 범위 70~180</th><th>저혈당 &lt;70</th><th>고혈당 &gt;180</th></tr>';
+            for (const mode of ['none', 'light', 'injection']) {
+                const s = summarize(results[mode]);
+                html += `<tr><td style="color:${COLORS[mode]};font-weight:bold">${names[mode]}</td>
+                    <td>${s.mean.toFixed(0)}</td><td>${s.max.toFixed(0)}</td><td>${s.min.toFixed(0)}</td>
+                    <td>${s.tir.toFixed(0)}%</td><td>${s.tbr.toFixed(0)}%</td><td>${s.tar.toFixed(0)}%</td></tr>`;
+            }
+            document.getElementById('summary').innerHTML = html;
+        }
+
+        window.addEventListener('resize', run);
+        run();
+    </script>
+</body>
+</html>
