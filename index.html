@@ -1,348 +1,646 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>광유전학 1형 당뇨병 치료 시뮬레이터</title>
-    <style>
-        body {
-            font-family: 'Malgun Gothic', sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        h1 { margin: 0 0 4px; font-size: 24px; }
-        .subtitle { color: #666; margin-bottom: 16px; font-size: 14px; text-align: center; }
-        .layout {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            max-width: 1250px;
-            width: 100%;
-            flex-wrap: wrap;
-        }
-        #control-panel {
-            background: #e0e0e0;
-            border-radius: 16px;
-            padding: 16px 20px;
-            width: 320px;
-            box-sizing: border-box;
-            flex-shrink: 0;
-        }
-        #control-panel h3 {
-            margin: 14px 0 6px;
-            font-size: 15px;
-            border-bottom: 1px solid #bbb;
-            padding-bottom: 4px;
-        }
-        #control-panel h3:first-child { margin-top: 0; }
-        .row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            margin: 5px 0;
-            gap: 8px;
-        }
-        .row input[type=range] { width: 120px; }
-        .row .val { width: 52px; text-align: right; font-weight: bold; }
-        .row select { font-size: 13px; max-width: 170px; }
-        .tag { font-size: 11px; color: #777; }
-        .main { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 16px; }
-        .card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            padding: 12px 16px;
-        }
-        .card h2 { margin: 0 0 8px; font-size: 16px; }
-        canvas { display: block; width: 100%; }
-        .legend { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; margin-bottom: 6px; }
-        .legend span::before {
-            content: '';
-            display: inline-block;
-            width: 14px; height: 4px;
-            margin-right: 5px;
-            vertical-align: middle;
-            background: var(--c);
-        }
-        table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
-        th { background: #dde9f5; }
-        .formula { font-family: monospace; font-size: 12px; background: #f7f7f7; padding: 2px 6px; border-radius: 4px; }
-        ul.notes { font-size: 13px; line-height: 1.6; margin: 0; padding-left: 18px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>광유전학 1형 당뇨 시뮬레이터</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.4/3Dmol-min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f8; --card:#fff; --line:#dde3ea; --text:#243040; --muted:#6b7a8c;
+  --ctrl:#8c9aa8; --inj:#e07b39; --opt:#7b4fa8; --band:rgba(46,160,96,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:var(--bg);color:var(--text);
+     font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:14px;line-height:1.55}
+header{max-width:1400px;margin:0 auto 16px}
+h1{font-size:22px;margin:0 0 4px}
+.lede{color:var(--muted);font-size:13px;margin:0}
+.wrap{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:300px 1fr 300px;gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.card h2{font-size:15px;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.card h3{font-size:13px;margin:14px 0 6px;color:var(--muted)}
+.card h3:first-of-type{margin-top:0}
+
+/* 슬라이더 */
+.sl{margin:0 0 12px}
+.sl .top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.sl .nm{font-size:13px;font-weight:600}
+.sl .vv{font-size:13px;font-weight:700;color:var(--opt);white-space:nowrap}
+.sl input[type=range]{width:100%;margin:4px 0 2px}
+.sl .src{font-size:11px;color:var(--muted)}
+.info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
+      border:1px solid var(--muted);color:var(--muted);border-radius:50%;font-size:10px;
+      cursor:help;position:relative;flex-shrink:0}
+.info:hover::after{content:attr(data-tip);position:absolute;left:18px;top:-4px;z-index:50;
+      width:210px;background:#243040;color:#fff;padding:7px 9px;border-radius:6px;
+      font-size:11px;line-height:1.45;font-weight:400;white-space:normal}
+
+select,button{font-family:inherit;font-size:13px}
+select{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.btn{padding:7px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+.btn:hover{background:#eef2f6}
+.btn.on{background:var(--opt);border-color:var(--opt);color:#fff}
+.scen{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.scen .btn{flex:1;min-width:92px;text-align:center;font-size:12px;line-height:1.3}
+.scen .btn small{display:block;font-size:10px;opacity:.75;font-weight:400}
+.rowline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+
+canvas.chart{width:100%!important}
+.chartbox{position:relative;height:340px}
+.chartbox.sm{height:165px}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:center}
+th{background:#eef2f6;font-weight:600}
+td.nm{text-align:left;font-weight:600}
+
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+#viewer{width:100%;height:330px;position:relative;border:1px solid var(--line);border-radius:8px;background:#fff}
+.vcap{font-size:12px;color:var(--muted);margin-top:8px}
+.flow{text-align:center;font-size:13px;margin-top:8px;padding:8px;background:#eef2f6;border-radius:6px}
+
+details{margin-top:8px}
+summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
+.refs{font-size:12px;color:var(--muted);line-height:1.7;margin:0;padding-left:18px}
+.refs li{margin-bottom:3px}
+.warn{background:#fdf4e6;border:1px solid #f0d9b0;border-radius:6px;padding:9px 11px;font-size:12px;margin-top:8px}
+.full{grid-column:1/-1}
+@media(max-width:1200px){.wrap{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-    <h1>광유전학을 통한 1형 당뇨병 치료 시뮬레이터</h1>
-    <div class="subtitle">빛 자극 → β세포 활성화 → 인슐린 분비 → 혈당 감소 과정을 시간에 따라 반복 계산하고, 주사 방식과 비교합니다.</div>
 
-    <div class="layout">
-        <div id="control-panel">
-            <h3>모델 선택</h3>
-            <div class="row">혈당 식
-                <select id="glucoseModel">
-                    <option value="bergman">1.1 Bergman (실제)</option>
-                    <option value="simple">2.4 단순식 (임의 변형)</option>
-                </select>
-            </div>
-            <div class="row">빛-인슐린 분비
-                <select id="secretionModel">
-                    <option value="glucose">2.2 α·A·G</option>
-                    <option value="linear">2.2 α·A</option>
-                    <option value="hill">2.3 α·A·SG(G)</option>
-                </select>
-            </div>
-            <div class="row">주사 흡수
-                <select id="injectionModel">
-                    <option value="two">1.3 2구획 (실제)</option>
-                    <option value="one">2.5 1구획 (임의 변형)</option>
-                </select>
-            </div>
+<header>
+  <h1>광유전학 1형 당뇨 시뮬레이터</h1>
+  <p class="lede">빛 자극으로 인슐린을 분비시키는 방식과 피하 인슐린 주사 방식의 혈당 곡선을 같은 조건에서 비교합니다. Δt = 1분, 전진 오일러법, 0~360분.</p>
+</header>
 
-            <h3>환자 / 식사</h3>
-            <div id="sliders-meal"></div>
+<div class="wrap">
 
-            <h3>빛 자극 (광유전학)</h3>
-            <div id="sliders-light"></div>
+  <!-- ─────────── 왼쪽: 조작부 ─────────── -->
+  <div class="card">
+    <h2>조작부</h2>
 
-            <h3>인슐린 주사</h3>
-            <div id="sliders-inj"></div>
-        </div>
+    <h3>광 자극 설정</h3>
+    <div class="sl">
+      <div class="top"><span class="nm">점등 방식</span></div>
+      <select id="lightMode">
+        <option value="cont">연속 조사</option>
+        <option value="duty">간헐 자극 (ON/OFF 반복)</option>
+        <option value="pulse">단일 펄스 (매 분 1회)</option>
+      </select>
+      <div class="src">Zhang 2017 = 연속 30분 / Ye 2011 = 간헐</div>
+    </div>
+    <div id="g-light"></div>
 
-        <div class="main">
-            <div class="card">
-                <h2>혈당 G(t) 비교</h2>
-                <div class="legend">
-                    <span style="--c:#95a5a6">무치료</span>
-                    <span style="--c:#8e44ad">광유전학 (빛 자극)</span>
-                    <span style="--c:#e67e22">인슐린 주사</span>
-                    <span style="--c:rgba(46,204,113,0.5)">목표 범위 70~180 mg/dL</span>
-                </div>
-                <canvas id="chartG" height="300"></canvas>
-            </div>
-            <div class="card">
-                <h2>혈중 인슐린 I(t)</h2>
-                <canvas id="chartI" height="200"></canvas>
-            </div>
-            <div class="card">
-                <h2>빛 자극 L(t)과 β세포 활성도 A(t)</h2>
-                <div class="legend">
-                    <span style="--c:rgba(52,152,219,0.35)">빛 켜짐 L=1</span>
-                    <span style="--c:#2980b9">활성도 A(t)</span>
-                </div>
-                <canvas id="chartA" height="150"></canvas>
-            </div>
-            <div class="card">
-                <h2>결과 비교</h2>
-                <table id="summary"></table>
-            </div>
-            <div class="card">
-                <h2>사용한 수식</h2>
-                <ul class="notes">
-                    <li>빛 활성화 (2.1): <span class="formula">dA/dt = kon·L(t)·(1-A) - koff·A</span></li>
-                    <li>빛-인슐린 분비 (2.2, 2.3): <span class="formula">u_light = u_basal + α·A·G</span> / <span class="formula">u_basal + α·A</span> / <span class="formula">u_basal + α·A·SG(G)</span>, <span class="formula">SG(G) = Smax·G^n/(G50^n+G^n)</span></li>
-                    <li>혈중 인슐린 (1.1): <span class="formula">dI/dt = -n(I - Ib) + u(t)</span></li>
-                    <li>혈당 (1.1): <span class="formula">dG/dt = Rfood - p1(G - Gb) - X·G</span>, <span class="formula">dX/dt = -p2·X + p3(I - Ib)</span></li>
-                    <li>혈당 (2.4): <span class="formula">dG/dt = Rfood - kbasal·G - kinsulin·I·G</span></li>
-                    <li>식사 (1.2): <span class="formula">Rfood = UG(t)/VG</span>, <span class="formula">UG(t) = DG·AG·t·e^(-t/tmax,G)/tmax,G²</span></li>
-                    <li>주사 (1.3): <span class="formula">dS1/dt = u - S1/tmax,I</span>, <span class="formula">dS2/dt = S1/tmax,I - S2/tmax,I</span>, <span class="formula">U = S2/tmax,I</span></li>
-                    <li>주사 (2.5): <span class="formula">dSsc/dt = -ka·Ssc + Dinj·δ(t-tinj)</span>, <span class="formula">dI/dt = ka·Ssc - ke·I</span> (ke = n)</li>
-                    <li>계산: 오일러 방법으로 Δt = 0.5분마다 <span class="formula">값(t+Δt) = 값(t) + 변화율·Δt</span> 를 반복합니다.</li>
-                    <li>파라미터 기본값은 자료에 수치가 없어 시연용으로 정한 값입니다. 광유전학 부분(2.x)은 실제 논문 공식이 아닌 임의 변형 모델입니다.</li>
-                </ul>
-            </div>
-        </div>
+    <h3>주사 설정</h3>
+    <div id="g-inj"></div>
+
+    <h3>환자 설정</h3>
+    <div id="g-pat"></div>
+
+    <h3>식사 설정</h3>
+    <div id="g-meal"></div>
+
+    <button class="btn" id="reset" style="width:100%;margin-top:6px">기본값으로 되돌리기</button>
+  </div>
+
+  <!-- ─────────── 가운데: 메인 그래프 ─────────── -->
+  <div>
+    <div class="card">
+      <h2>혈당 곡선 비교</h2>
+      <div class="scen">
+        <button class="btn on" data-f="2.0">보수적 f<sub>max</sub>=2.0<small>Chen 2024</small></button>
+        <button class="btn on" data-f="3.5">대표값 f<sub>max</sub>=3.5<small>Zhang 2017</small></button>
+        <button class="btn on" data-f="5.0">낙관적 f<sub>max</sub>=5.0<small>Reinbothe 2014</small></button>
+      </div>
+      <div class="rowline">
+        <button class="btn on" id="tgOverlay">세 시나리오 동시 표시</button>
+        <button class="btn on" id="tgBand">불확실성 밴드</button>
+        <span style="font-size:12px;color:var(--muted)">
+          <b style="color:var(--ctrl)">━</b> 대조군(식사만)
+          <b style="color:var(--inj)">━</b> 주사
+          <b style="color:var(--opt)">━</b> 광유전학
+        </span>
+      </div>
+      <div class="chartbox"><canvas id="cG" class="chart"></canvas></div>
     </div>
 
-    <script src="model.js"></script>
-    <script>
-        const params = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+    <div class="card" style="margin-top:16px">
+      <h2>요약</h2>
+      <table id="tbl"></table>
+      <div class="warn" id="vwarn"></div>
+    </div>
+  </div>
 
-        // 슬라이더 정의: [그룹, 키, 이름, 최소, 최대, 간격, 표시 변환]
-        const sliderDefs = [
-            ['meal', 'G0', '초기 혈당 (mg/dL)', 60, 350, 5],
-            ['meal', 'carbs0', '아침 탄수화물 (g)', 0, 150, 5],
-            ['meal', 'carbs1', '점심 탄수화물 (g)', 0, 150, 5],
-            ['meal', 'carbs2', '저녁 탄수화물 (g)', 0, 150, 5],
-            ['light', 'kon', 'kon 활성화 속도', 0.05, 2, 0.05],
-            ['light', 'koff', 'koff 비활성화 속도', 0.01, 0.5, 0.01],
-            ['light', 'alpha', 'α 분비 증가 정도', 0, 3, 0.05],
-            ['light', 'lightDelay', '식후 점등 시작 (분)', -30, 90, 5],
-            ['light', 'lightDuration', '점등 시간 (분)', 0, 300, 10],
-            ['inj', 'insulinPerCarb', '인슐린 1U 당 탄수화물 (g)', 5, 30, 1],
-            ['inj', 'injDelay', '식후 주사 시점 (분)', -30, 60, 5],
-            ['inj', 'tmaxI', 'tmax,I 흡수 최대 시간 (분)', 20, 120, 5],
-            ['inj', 'ka', 'ka 흡수율 (1구획)', 0.005, 0.1, 0.005],
-        ];
+  <!-- ─────────── 오른쪽: 보조 그래프 ─────────── -->
+  <div>
+    <div class="card">
+      <h2>혈중 인슐린</h2>
+      <div class="chartbox sm"><canvas id="cI" class="chart"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>cAMP 상대값</h2>
+      <div class="chartbox sm"><canvas id="cC" class="chart"></canvas></div>
+      <div class="vcap">빛이 켜지면 bPAC가 cAMP를 만들고, 빛을 꺼도 τ=23초에 걸쳐 서서히 줄어듭니다.</div>
+    </div>
+  </div>
 
-        // α 는 분비 모델마다 단위가 달라서 기본값 대비 배율로 조절한다
-        const alphaKey = { linear: 'alphaLinear', glucose: 'alphaGlucose', hill: 'alphaHill' };
-        let alphaScale = 1;
+  <!-- ─────────── 아래: 단백질 뷰어 ─────────── -->
+  <div class="card full">
+    <h2>단백질 구조 뷰어</h2>
+    <div class="tabs" id="pdbTabs"></div>
+    <div id="viewer"></div>
+    <div class="flow">빛이 <b>ChR2</b>를 열면 → <b>인슐린</b>이 나와서 → <b>인슐린 수용체</b>에 붙는다.</div>
+    <div class="vcap" id="pdbCap"></div>
+  </div>
 
-        function getValue(key) {
-            if (key.startsWith('carbs')) return params.meals[+key.slice(5)].carbs;
-            if (key === 'alpha') return alphaScale;
-            if (key === 'insulinPerCarb') return Math.round(1 / params.insulinPerCarb);
-            return params[key];
+  <!-- ─────────── 아래: 수식 / 가정 / 출처 ─────────── -->
+  <div class="card full">
+    <h2>계산식 · 가정 · 출처</h2>
+
+    <details open>
+      <summary>매 1분마다 계산하는 순서</summary>
+      <ol class="refs" style="color:var(--text)">
+        <li><b>식사 포도당 흡수 (두 방식 공통)</b> — dRa1/dt = −(Ra1 − AG·uCHO)/tmaxG, dRa/dt = −(Ra − Ra1)/tmaxG</li>
+        <li><b>A. 광유전학</b> — A = L/(L + K<sub>0.5</sub>), d[cAMP]/dt = (A·cAMP<sub>max</sub> − [cAMP])/τ<sub>cAMP</sub>,
+            ISR = ISR<sub>base</sub>·(1 + (f<sub>max</sub>−1)·[cAMP]/cAMP<sub>max</sub>)·G/(G + 150)</li>
+        <li><b>B. 주사</b> — dS1/dt = u − S1/tmaxI, dS2/dt = (S1 − S2)/tmaxI, dI/dt = S2/(VI·tmaxI) − ke·I</li>
+        <li><b>인슐린 작용 지연 (공통)</b> — dX/dt = −p2·X + p2·S<sub>I</sub>·I</li>
+        <li><b>혈당 갱신 (공통)</b> — dG/dt = −(SG + X)·G + SG·Gb + Ra/(V·체중)</li>
+      </ol>
+      <p class="refs">ISR 식 마지막 항 G/(G+150)이 포도당 의존성, 즉 저혈당 안전장치입니다. 혈당이 낮아지면 빛을 계속 켜도 분비가 줄어듭니다.</p>
+    </details>
+
+    <details>
+      <summary>고정 상수 (코드에 상수로 선언)</summary>
+      <table style="margin-top:6px">
+        <tr><th>기호</th><th>값</th><th>의미</th><th>출처</th></tr>
+        <tr><td>k12</td><td>0.066 min⁻¹</td><td>포도당 구획 간 이동률</td><td rowspan="12">Cairoli et al. 2020</td></tr>
+        <tr><td>ke</td><td>0.138 min⁻¹</td><td>인슐린 제거율</td></tr>
+        <tr><td>VI</td><td>0.12 × 체중</td><td>인슐린 분포용적</td></tr>
+        <tr><td>ka1 / kb1</td><td>0.006 / 0.0034</td><td>인슐린 작용 (수송)</td></tr>
+        <tr><td>ka2 / kb2</td><td>0.06 / 0.056</td><td>인슐린 작용 (처리)</td></tr>
+        <tr><td>ka3 / kb3</td><td>0.03 / 0.024</td><td>인슐린 작용 (간 포도당 생성 억제)</td></tr>
+        <tr><td>AG</td><td>0.8</td><td>탄수화물 생체이용률</td></tr>
+        <tr><td>tmaxG</td><td>40 min</td><td>포도당 흡수 최대 시간</td></tr>
+        <tr><td>tmaxI</td><td>55 min</td><td>피하 인슐린 흡수 최대 시간</td></tr>
+        <tr><td>EGP0</td><td>0.0161 × 체중</td><td>기저 내인성 포도당 생성</td></tr>
+        <tr><td>F01</td><td>0.0097 × 체중</td><td>인슐린 비의존 포도당 소비</td></tr>
+        <tr><td>ub</td><td>0.0555 U/min</td><td>기저 인슐린 주입률</td></tr>
+        <tr><td>SG</td><td>0.02 min⁻¹</td><td>포도당 효과성</td><td rowspan="3">Liu et al. 2019</td></tr>
+        <tr><td>p2</td><td>0.02 min⁻¹</td><td>인슐린 작용 지연</td></tr>
+        <tr><td>V</td><td>0.9 dL/kg</td><td>포도당 분포용적</td></tr>
+        <tr><td>τ<sub>cAMP</sub></td><td>23 ± 2 s</td><td>cAMP 축적 시간상수</td><td rowspan="3">Stierl et al. 2011</td></tr>
+        <tr><td>K<sub>0.5</sub></td><td>3.7 ± 0.4 μW/mm²</td><td>빛 세기 반포화 상수</td></tr>
+        <tr><td>빛/어둠 활성비</td><td>약 300배</td><td>어두울 때 대비 bPAC 활성</td></tr>
+        <tr><td>τ<sub>off</sub> (ChR2)</td><td>약 11 ms</td><td>채널 닫힘 시간상수</td><td>Williams, arXiv:1304.5635</td></tr>
+      </table>
+      <p class="refs">ChR2의 τ<sub>off</sub> = 11 ms는 1분 단위 계산에서 사실상 0이므로, 빛 ON/OFF는 즉시 반영되는 것으로 단순화했습니다. 이 단순화의 근거로 값만 표에 남깁니다.</p>
+    </details>
+
+    <details>
+      <summary>사양서에 없어서 직접 정한 값 — 보고서에 반드시 밝힐 것</summary>
+      <ul class="refs">
+        <li><b>조직 투과율 (기본 0.74%)</b> — 광 세기 슬라이더는 피부 표면 단위(mW/cm²)인데 K<sub>0.5</sub>는 세포 표면 단위(μW/mm²)입니다. 50 mW/cm²를 그대로 넣으면 500 μW/mm²로 K<sub>0.5</sub>의 135배라 A가 항상 1에 붙어 슬라이더가 무의미해집니다. 그래서 표면에서 세포까지의 감쇠를 투과율로 두었고, 기본값은 50 mW/cm²에서 A = 0.5가 되도록 잡았습니다. <b>문헌값이 아닌 가정값</b>이며 슬라이더로 바꿔볼 수 있습니다.</li>
+        <li><b>ISR<sub>base</sub></b> — 사양서에 수치가 없습니다. 빛을 끈 상태에서 초기 혈당일 때의 분비량이 기저 주입률 ub와 같아지도록 맞췄습니다. 세 방식이 똑같은 인슐린 상태에서 출발해야 비교가 공정하기 때문입니다.</li>
+        <li><b>Gb</b> — 초기 혈당이 t=0에서 변하지 않도록 Gb = G₀·(SG + X₀)/SG로 역산했습니다. 기저 인슐린이 깔린 상태에서 환자가 초기 혈당에 머물러 있다는 뜻입니다.</li>
+        <li><b>cAMP<sub>max</sub> = 1</b> — ISR 식에 [cAMP]/cAMP<sub>max</sub> 비율로만 들어가므로 상대값 1로 두었습니다. 그래프의 cAMP는 0~1 상대값입니다.</li>
+        <li><b>기저 인슐린 처리</b> — 대조군과 주사 방식은 ub를 피하 경로로 계속 받고, 광유전학은 ub 대신 빛을 받는 세포가 분비를 담당합니다. 대조군은 "기저 인슐린만, 식사 보정 없음"입니다.</li>
+        <li><b>cAMP는 1초 간격으로 계산</b> — τ<sub>cAMP</sub> = 23초라 1분 간격 오일러법은 발산합니다(Δt/τ = 2.6). 빛과 cAMP만 1초 간격 내부 루프로 계산하고 그 분의 평균을 ISR에 넣습니다. ON/OFF 시간이 초 단위이므로 이 방식이 점등 주기도 정확히 반영합니다. 혈당·인슐린 본체는 사양서대로 1분 간격입니다.</li>
+        <li><b>쓰이지 않은 상수</b> — k12, ka1~kb3, EGP0, F01은 Hovorka 모델 상수입니다. 사양서의 계산 순서 1~5단계는 Bergman 계열 식이라 이 상수들을 쓰지 않습니다. 지시대로 코드에 선언하고 출처만 달아두었습니다.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>출처</summary>
+      <ul class="refs">
+        <li>Cairoli F, Fenu G, Pellegrino FA, Salvato E. Model Predictive Control of Glucose Concentration Based on Signal Temporal Logic Specifications with Unknown-Meals Occurrence. <i>Cybernetics and Systems</i> 2020;51(4):426-441. doi:10.1080/01969722.2020.1758463</li>
+        <li>Liu C, Vehí J, Avari P, et al. Long-Term Glucose Forecasting Using a Physiological Model and Deconvolution of the Continuous Glucose Monitoring Signal. <i>Sensors</i> 2019;19:4338. doi:10.3390/s19194338</li>
+        <li>Cobelli C, Dalla Man C. Minimal and Maximal Models to Quantitate Glucose Metabolism. <i>J Diabetes Sci Technol</i> 2022;16(5):1270-1298. doi:10.1177/19322968211015268</li>
+        <li>Gillis R, Palerm CC, Zisser H, et al. Glucose Estimation and Prediction through Meal Responses Using Ambulatory Subject Data. <i>J Diabetes Sci Technol</i> 2007;1(6):825-833.</li>
+        <li>Liu C, Vehí J, Oliver N, et al. Enhancing Blood Glucose Prediction with Meal Absorption and Physical Exercise Information. arXiv:1901.07467</li>
+        <li>Stierl M, et al. Light Modulation of Cellular cAMP by a Small Bacterial Photoactivated Adenylyl Cyclase, bPAC, of the Soil Bacterium <i>Beggiatoa</i>. <i>J Biol Chem</i> 2011;286(2):1181-1188. doi:10.1074/jbc.M110.185496</li>
+        <li>Zhang F, Tzanakakis ES. Optogenetic regulation of insulin secretion in pancreatic β-cells. <i>Scientific Reports</i> 2017;7:9357. doi:10.1038/s41598-017-09937-0</li>
+        <li>Chen et al. Light-Mediated Enhancement of Glucose-Stimulated Insulin Release of Optogenetically Engineered Human Pancreatic Beta-Cells. <i>ACS Synth Biol</i> 2024;13(3):825-837. doi:10.1021/acssynbio.3c00628</li>
+        <li>Reinbothe TM, et al. Optogenetic control of insulin secretion in intact pancreatic islets with β-cell-specific expression of Channelrhodopsin-2. <i>Islets</i> 2014;6:e28095. doi:10.4161/isl.28095</li>
+        <li>Maharwal et al. <i>J Biophotonics</i> 2026. doi:10.1002/jbio.202500232</li>
+        <li>Deng X, et al. Optogenetic therapeutic strategies for diabetes mellitus. <i>Journal of Diabetes</i> 2024;16(6):e13557. doi:10.1111/1753-0407.13557</li>
+        <li>Williams JC, et al. Computational Modeling of Channelrhodopsin-2 Photocurrent Characteristics. arXiv:1304.5635</li>
+        <li>구조 데이터 — RCSB PDB: 6EID (ChR2), 4INS (인슐린), 6SOF (인슐린 수용체), 5X4U (OaPAC) · AlphaFold Protein Structure Database</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   고정 상수 — 모두 논문 출처가 있는 값. 임의로 바꾸지 않는다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Cairoli F. et al. 2020, Cybernetics and Systems 51(4):426-441 */
+const k12  = 0.066;    // min^-1, 포도당 구획 간 이동률
+const ke   = 0.138;    // min^-1, 인슐린 제거율
+const ka1  = 0.006,  kb1 = 0.0034;   // 인슐린 작용 (수송)
+const ka2  = 0.06,   kb2 = 0.056;    // 인슐린 작용 (처리)
+const ka3  = 0.03,   kb3 = 0.024;    // 인슐린 작용 (간 포도당 생성 억제)
+const AG    = 0.8;     // 탄수화물 생체이용률
+const tmaxG = 40;      // min, 포도당 흡수 최대 시간
+const tmaxI = 55;      // min, 피하 인슐린 흡수 최대 시간
+const EGP0_PER_KG = 0.0161;  // 기저 내인성 포도당 생성 (× 체중)
+const F01_PER_KG  = 0.0097;  // 인슐린 비의존 포도당 소비 (× 체중)
+const VI_PER_KG   = 0.12;    // L/kg, 인슐린 분포용적
+const ub = 0.0555 * 1000;    // U/min -> mU/min, 기저 주입률
+
+/* Liu C. et al. 2019, Sensors 19:4338 */
+const SG = 0.02;   // min^-1, 포도당 효과성
+const p2 = 0.02;   // min^-1, 인슐린 작용 지연
+const V  = 0.9;    // dL/kg, 포도당 분포용적
+
+/* Stierl M. et al. 2011, J Biol Chem 286(2):1181-1188 */
+const TAU_CAMP   = 23 / 60;   // s -> min, cAMP 축적 시간상수
+const K_HALF     = 3.7;       // uW/mm^2, 빛 세기 반포화 상수
+const DARK_RATIO = 1 / 300;   // 빛/어둠 활성비 300배 -> 어두울 때 활성
+
+/* Williams J.C. et al. arXiv:1304.5635
+   ChR2 채널 닫힘 시간상수 tau_off ~= 11 ms.
+   1분 단위 계산에서는 사실상 0이므로 빛 ON/OFF를 즉시 반영으로 단순화한다. */
+const TAU_OFF_CHR2_MS = 11;
+
+/* Chen et al. 2024 — 15 mM에서 분비가 뚜렷했으므로 포도당 반포화 상수를 150 mg/dL로 둔다 */
+const K_G = 150;
+
+const CAMP_MAX = 1.0;   // 상대값. ISR 식에 비율로만 들어간다.
+const T_END = 360;      // min
+const DT = 1;           // min, 전진 오일러법
+const SUB = 60;         // cAMP 전용 내부 루프 (1초 간격)
+
+/* ══════════════════════════════════════════════════════════════
+   슬라이더 정의 — 범위는 문헌에서 보고된 범위로 제한한다
+   ══════════════════════════════════════════════════════════════ */
+const SLIDERS = [
+  {g:'light',k:'intensity',  nm:'광 세기',        min:0,max:200,step:1,  def:50, u:'mW/cm²',
+   src:'Maharwal 2026', tip:'Maharwal 2026이 50·100·200 mW/cm²로 실험한 범위'},
+  {g:'light',k:'pulseSec',   nm:'1회 조사 시간',  min:1,max:30, step:1,  def:10, u:'초',
+   src:'Maharwal 2026', tip:'Maharwal 2026의 1·2·5·10·20·30초 조건. 단일 펄스 방식에서만 적용'},
+  {g:'light',k:'onSec',      nm:'ON 시간',        min:1,max:10, step:1,  def:5,  u:'초',
+   src:'Zhang 2017 / Ye 2011', tip:'Zhang 2017 및 Ye 2011의 5초 ON. 간헐 자극 방식에서만 적용'},
+  {g:'light',k:'offSec',     nm:'OFF 시간',       min:5,max:20, step:1,  def:10, u:'초',
+   src:'Zhang 2017 / Ye 2011', tip:'위 두 연구의 10초 OFF. 간헐 자극 방식에서만 적용'},
+  {g:'light',k:'lightTotal', nm:'총 조사 시간',   min:0,max:120,step:5,  def:30, u:'분',
+   src:'Zhang 2017', tip:'Zhang 2017의 30분 조사'},
+  {g:'light',k:'lightStart', nm:'조사 시작 시각', min:0,max:180,step:5,  def:0,  u:'분',
+   src:'가정', tip:'사양서에 없는 화면 조작용 값. 식사 시각과 맞춰 보라고 넣었습니다.'},
+  {g:'light',k:'trans',      nm:'조직 투과율',    min:0.1,max:5,step:0.1,def:0.74,u:'%',
+   src:'가정 — 문헌값 아님', tip:'피부 표면 세기(mW/cm²)와 세포 표면 반포화 상수(μW/mm²)의 단위·위치 차이를 메우려고 둔 가정값입니다. 기본값은 50 mW/cm²에서 A=0.5가 되도록 잡았습니다.'},
+
+  {g:'inj',  k:'units',      nm:'주사 단위',      min:0,max:15, step:0.5,def:5,  u:'U',
+   src:'임상 통상 범위', tip:'임상에서 1회 식사 보정에 쓰는 통상 범위'},
+  {g:'inj',  k:'injTime',    nm:'투여 시각',      min:0,max:180,step:5,  def:0,  u:'분',
+   src:'사양서', tip:'사양서는 t=0에 한 번에 투여. 슬라이더로 시각을 옮겨 볼 수 있습니다.'},
+
+  {g:'pat',  k:'W',          nm:'체중',           min:40,max:100,step:1, def:60, u:'kg',
+   src:'Cairoli 2020', tip:'고등학생~성인 범위. Cairoli 2020은 100 kg 사용'},
+  {g:'pat',  k:'SI',         nm:'인슐린 민감도 S_I',min:1.0,max:8.0,step:0.1,def:2.5,u:'×10⁻⁴',
+   src:'1형 당뇨 ≈ 2.5', tip:'1형 당뇨 약 2.5, 정상 약 7~8. 단위는 min⁻¹·(μU/mL)⁻¹'},
+  {g:'pat',  k:'G0',         nm:'초기 혈당',      min:80,max:300,step:5, def:180,u:'mg/dL',
+   src:'식전 고혈당 가정', tip:'식전 고혈당 상태를 가정한 범위'},
+
+  {g:'meal', k:'carbs',      nm:'탄수화물 섭취량',min:0,max:100,step:5,  def:60, u:'g',
+   src:'Zhang/Liu 계열 표준 식사', tip:'Zhang/Liu 계열 연구의 표준 식사 60 g'},
+  {g:'meal', k:'mealTime',   nm:'섭취 시각',      min:0,max:180,step:5,  def:0,  u:'분',
+   src:'가정', tip:'사양서에 없는 화면 조작용 값입니다.'},
+];
+
+const P = {lightMode:'cont'};
+SLIDERS.forEach(s => P[s.k] = s.def);
+
+/* 시나리오 — 인슐린 분비 배수 f_max */
+const SCEN = [
+  {f:2.0, nm:'보수적',  src:'Chen 2024',       color:'#b9a0d6', on:true},
+  {f:3.5, nm:'대표값',  src:'Zhang 2017',      color:'#7b4fa8', on:true},
+  {f:5.0, nm:'낙관적',  src:'Reinbothe 2014',  color:'#4a2a70', on:true},
+];
+let overlay = true, showBand = true;
+
+/* ══════════════════════════════════════════════════════════════
+   계산 — 매 1분마다 사양서의 1~5단계를 순서대로 실행
+   mode: 'control'(식사만) | 'injection'(주사) | 'light'(광유전학)
+   ══════════════════════════════════════════════════════════════ */
+function simulate(mode, fmax) {
+  const W = P.W;
+  const VI = VI_PER_KG * W;            // L
+  const SI = P.SI * 1e-4;              // min^-1 (uU/mL)^-1
+
+  // t=0을 정상상태로 맞추는 초기화 (세 방식이 같은 인슐린 상태에서 출발하도록)
+  const Iss = ub / (VI * ke);          // mU/L = uU/mL
+  const X0  = SI * Iss;
+  const Gb  = P.G0 * (SG + X0) / SG;   // 인슐린 작용이 없을 때의 혈당 기준선
+  const ISRbase = ub / (P.G0 / (P.G0 + K_G));   // 빛 OFF 기저분비 = 기저 주입률
+
+  let G = P.G0, I = Iss, X = X0, Ra1 = 0, Ra = 0;
+  let S1 = ub * tmaxI, S2 = ub * tmaxI;         // 피하 구획 정상상태
+  let cAMP = DARK_RATIO * CAMP_MAX;
+
+  const out = {G:[], I:[], cAMP:[]};
+
+  for (let t = 0; t <= T_END; t++) {
+    // ── 빛 → cAMP : 1초 간격 내부 루프
+    // tau_cAMP = 23초라 1분 간격 오일러법은 발산한다 (dt/tau = 2.6).
+    // ON/OFF 시간도 초 단위이므로 1초 간격이라야 점등 주기가 정확히 반영된다.
+    let cSum = 0;
+    for (let s = 0; s < SUB; s++) {
+      let L = 0;
+      if (mode === 'light') {
+        const ts = t * 60 + s;
+        const st = P.lightStart * 60, en = st + P.lightTotal * 60;
+        if (ts >= st && ts < en) {
+          const rel = ts - st;
+          let on;
+          if (P.lightMode === 'cont')      on = true;
+          else if (P.lightMode === 'duty') on = (rel % (P.onSec + P.offSec)) < P.onSec;
+          else                             on = (rel % 60) < P.pulseSec;
+          // mW/cm^2 -> uW/mm^2 는 ×10, 여기에 조직 투과율을 곱한다
+          if (on) L = P.intensity * 10 * (P.trans / 100);
         }
-        function setValue(key, v) {
-            if (key.startsWith('carbs')) params.meals[+key.slice(5)].carbs = v;
-            else if (key === 'alpha') {
-                alphaScale = v;
-                for (const k of Object.values(alphaKey)) params[k] = DEFAULT_PARAMS[k] * v;
-            }
-            else if (key === 'insulinPerCarb') params.insulinPerCarb = 1 / v;
-            else params[key] = v;
-        }
+      }
+      const A = DARK_RATIO + (1 - DARK_RATIO) * L / (L + K_HALF);
+      cAMP += (DT / SUB) * (A * CAMP_MAX - cAMP) / TAU_CAMP;
+      cSum += cAMP;
+    }
+    const cAvg = cSum / SUB;
 
-        for (const [group, key, label, min, max, step] of sliderDefs) {
-            const row = document.createElement('div');
-            row.className = 'row';
-            const decimals = step < 1 ? String(step).split('.')[1].length : 0;
-            row.innerHTML = `<span>${label}${key === 'alpha' ? ' <span class="tag">(기본값 배율)</span>' : ''}</span>
-                <input type="range" min="${min}" max="${max}" step="${step}" value="${getValue(key)}">
-                <span class="val">${getValue(key).toFixed(decimals)}</span>`;
-            const input = row.querySelector('input');
-            const out = row.querySelector('.val');
-            input.addEventListener('input', () => {
-                setValue(key, parseFloat(input.value));
-                out.textContent = parseFloat(input.value).toFixed(decimals);
-                run();
-            });
-            document.getElementById('sliders-' + group).appendChild(row);
-        }
-        for (const id of ['glucoseModel', 'secretionModel', 'injectionModel']) {
-            document.getElementById(id).addEventListener('change', e => { params[id] = e.target.value; run(); });
-        }
+    // ── 2-A단계: 광유전학 인슐린 분비. 마지막 항이 포도당 의존성(저혈당 안전장치)
+    const ISR = mode === 'light'
+      ? ISRbase * (1 + (fmax - 1) * cAvg / CAMP_MAX) * G / (G + K_G)
+      : 0;
 
-        const COLORS = { none: '#95a5a6', light: '#8e44ad', injection: '#e67e22' };
+    out.G.push(G); out.I.push(I); out.cAMP.push(cAvg);
 
-        function setupCanvas(canvas) {
-            const ratio = window.devicePixelRatio || 1;
-            const w = canvas.clientWidth, h = parseInt(canvas.getAttribute('height'));
-            canvas.width = w * ratio;
-            canvas.height = h * ratio;
-            canvas.style.height = h + 'px';
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-            return { ctx, w, h };
-        }
+    // ── 1단계: 식사로 들어오는 포도당 (2구획)
+    const uCHO = (t === P.mealTime) ? P.carbs * 1000 : 0;   // g -> mg/min
+    const dRa1 = -(Ra1 - AG * uCHO) / tmaxG;
+    const dRa  = -(Ra - Ra1) / tmaxG;
 
-        // 공통 축 그리기. 반환값: 좌표 변환 함수
-        function drawAxes(ctx, w, h, yMax, yLabel, yTicks) {
-            const pad = { l: 50, r: 12, t: 10, b: 28 };
-            const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
-            const x = t => pad.l + (t / params.duration) * pw;
-            const y = v => pad.t + ph - (v / yMax) * ph;
-            ctx.clearRect(0, 0, w, h);
-            ctx.font = '11px sans-serif';
-            ctx.strokeStyle = '#eee';
-            ctx.fillStyle = '#666';
-            ctx.lineWidth = 1;
-            ctx.textAlign = 'right';
-            for (const v of yTicks) {
-                ctx.beginPath(); ctx.moveTo(pad.l, y(v)); ctx.lineTo(w - pad.r, y(v)); ctx.stroke();
-                ctx.fillText(v, pad.l - 6, y(v) + 4);
-            }
-            ctx.textAlign = 'center';
-            for (let m = 0; m <= params.duration; m += 120) {
-                ctx.beginPath(); ctx.moveTo(x(m), pad.t); ctx.lineTo(x(m), pad.t + ph); ctx.stroke();
-                const hour = (params.startHour + m / 60) % 24;
-                ctx.fillText(hour + ':00', x(m), h - 10);
-            }
-            ctx.save();
-            ctx.translate(12, pad.t + ph / 2); ctx.rotate(-Math.PI / 2);
-            ctx.fillText(yLabel, 0, 0);
-            ctx.restore();
-            return { x, y, pad, pw, ph };
-        }
+    // ── 2-B단계: 주사 인슐린 (피하 2구획)
+    let u = ub;
+    if (mode === 'injection' && t === P.injTime) u += P.units * 1000;  // U -> mU
+    const dS1 = u - S1 / tmaxI;
+    const dS2 = (S1 - S2) / tmaxI;
 
-        function drawLine(ctx, ax, ts, vs, color, width = 2) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
-            ctx.beginPath();
-            for (let i = 0; i < ts.length; i++) {
-                const px = ax.x(ts[i]), py = ax.y(vs[i]);
-                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-            }
-            ctx.stroke();
-        }
+    const dI = mode === 'light'
+      ? ISR / VI - ke * I                  // 분비 세포 → 혈중 (피하 지연 없음)
+      : S2 / (VI * tmaxI) - ke * I;        // 피하 → 혈중
 
-        function niceMax(v, step) { return Math.ceil(v / step) * step; }
-        function ticks(max, step) { const a = []; for (let v = 0; v <= max; v += step) a.push(v); return a; }
+    // ── 3단계: 인슐린 작용 지연 (공통)
+    const dX = -p2 * X + p2 * SI * I;
+    // ── 4단계: 혈당 갱신 (공통)
+    const dG = -(SG + X) * G + SG * Gb + Ra / (V * W);
 
-        function drawMealMarks(ctx, ax) {
-            ctx.fillStyle = '#c0392b';
-            ctx.textAlign = 'center';
-            for (const meal of params.meals) {
-                if (meal.carbs <= 0) continue;
-                ctx.fillText('🍚' + meal.carbs + 'g', ax.x(meal.t), ax.pad.t + 12);
-            }
-        }
+    // ── 5단계: 다음 분으로
+    Ra1 += dRa1 * DT; Ra += dRa * DT;
+    S1  += dS1 * DT;  S2 += dS2 * DT;
+    I = Math.max(I + dI * DT, 0);
+    X = Math.max(X + dX * DT, 0);
+    G = Math.max(G + dG * DT, 1);
+  }
+  return out;
+}
 
-        function run() {
-            const results = {
-                none: simulate('none', params),
-                light: simulate('light', params),
-                injection: simulate('injection', params),
-            };
+/* ══════════════════════════════════════════════════════════════
+   화면 만들기
+   ══════════════════════════════════════════════════════════════ */
+function buildSliders() {
+  for (const s of SLIDERS) {
+    const d = document.createElement('div');
+    d.className = 'sl';
+    d.id = 'sl-' + s.k;
+    d.innerHTML =
+      `<div class="top"><span class="nm">${s.nm} <span class="info" data-tip="${s.tip}">i</span></span>
+       <span class="vv"><span id="v-${s.k}"></span> ${s.u}</span></div>
+       <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.def}" id="i-${s.k}">
+       <div class="src">${s.src}</div>`;
+    document.getElementById('g-' + s.g).appendChild(d);
+    const inp = d.querySelector('input');
+    inp.addEventListener('input', () => {
+      P[s.k] = parseFloat(inp.value);
+      document.getElementById('v-' + s.k).textContent = inp.value;
+      render();
+    });
+    document.getElementById('v-' + s.k).textContent = s.def;
+  }
+}
 
-            // 혈당 그래프
-            {
-                const { ctx, w, h } = setupCanvas(document.getElementById('chartG'));
-                const maxG = Math.max(300, ...Object.values(results).map(r => Math.max(...r.G)));
-                const yMax = niceMax(maxG, 50);
-                const ax = drawAxes(ctx, w, h, yMax, '혈당 (mg/dL)', ticks(yMax, yMax > 400 ? 100 : 50));
-                ctx.fillStyle = 'rgba(46,204,113,0.12)';
-                ctx.fillRect(ax.pad.l, ax.y(180), ax.pw, ax.y(70) - ax.y(180));
-                for (const mode of ['none', 'light', 'injection']) drawLine(ctx, ax, results[mode].t, results[mode].G, COLORS[mode]);
-                drawMealMarks(ctx, ax);
-                ctx.fillStyle = COLORS.injection;
-                for (const d of results.injection.doses) {
-                    ctx.fillText('💉' + d.units.toFixed(1) + 'U', ax.x(d.t), ax.pad.t + ax.ph - 6);
-                }
-            }
+/* 점등 방식에 따라 관계없는 슬라이더를 흐리게 */
+function syncLightMode() {
+  const show = {pulseSec:'pulse', onSec:'duty', offSec:'duty'};
+  for (const [k, m] of Object.entries(show)) {
+    const el = document.getElementById('sl-' + k);
+    const act = P.lightMode === m;
+    el.style.opacity = act ? '1' : '.4';
+    el.querySelector('input').disabled = !act;
+  }
+}
 
-            // 인슐린 그래프
-            {
-                const { ctx, w, h } = setupCanvas(document.getElementById('chartI'));
-                const maxI = Math.max(10, ...['light', 'injection'].map(m => Math.max(...results[m].I)));
-                const yMax = niceMax(maxI, 10);
-                const ax = drawAxes(ctx, w, h, yMax, '인슐린 (μU/mL)', ticks(yMax, yMax > 60 ? 20 : 10));
-                for (const mode of ['none', 'light', 'injection']) drawLine(ctx, ax, results[mode].t, results[mode].I, COLORS[mode]);
-            }
+/* 정상 범위(70~180 mg/dL) 음영 플러그인 */
+const bandPlugin = {
+  id: 'normalBand',
+  beforeDatasetsDraw(c) {
+    const {ctx, chartArea:a, scales:{y}} = c;
+    if (!a || !c.options.normalBand) return;   // 혈당 그래프에서만 칠한다
+    const top = y.getPixelForValue(180), bot = y.getPixelForValue(70);
+    ctx.save();
+    ctx.fillStyle = 'rgba(46,160,96,.10)';
+    ctx.fillRect(a.left, Math.max(top, a.top), a.right - a.left,
+                 Math.min(bot, a.bottom) - Math.max(top, a.top));
+    ctx.restore();
+  }
+};
+Chart.register(bandPlugin);
 
-            // 빛 / 활성도 그래프
-            {
-                const { ctx, w, h } = setupCanvas(document.getElementById('chartA'));
-                const ax = drawAxes(ctx, w, h, 1, 'A', [0, 0.5, 1]);
-                const r = results.light;
-                ctx.fillStyle = 'rgba(52,152,219,0.18)';
-                for (let i = 0; i < r.t.length - 1; i++) {
-                    if (r.L[i]) ctx.fillRect(ax.x(r.t[i]), ax.y(1), ax.x(r.t[i + 1]) - ax.x(r.t[i]) + 0.5, ax.ph);
-                }
-                drawLine(ctx, ax, r.t, r.A, '#2980b9');
-            }
+const LABELS = Array.from({length: T_END + 1}, (_, i) => i);
+// step = 눈금 간격(분). 좁은 보조 그래프는 간격을 넓혀야 라벨이 겹치지 않는다.
+const baseOpts = (yTitle, step = 30) => ({
+  responsive:true, maintainAspectRatio:false, animation:false,
+  interaction:{mode:'index', intersect:false},
+  elements:{point:{radius:0}, line:{borderWidth:2, tension:.25}},
+  scales:{
+    x:{title:{display:true, text:'시간 (분)'},
+       // 눈금을 일정 간격으로 고정한다 (자동 선택에 맡기면 28·56처럼 어중간한 값이 나온다)
+       afterBuildTicks: a => { a.ticks = []; for (let v = 0; v <= T_END; v += step) a.ticks.push({value:v}); },
+       ticks:{autoSkip:false, maxRotation:0, callback: v => v}},
+    y:{title:{display:true, text:yTitle}, beginAtZero:true}
+  },
+  plugins:{legend:{display:false}, tooltip:{callbacks:{title:it=>it[0].label+'분'}}}
+});
 
-            // 요약 표
-            const names = { none: '무치료', light: '광유전학 (빛 자극)', injection: '인슐린 주사' };
-            let html = '<tr><th>방식</th><th>평균 혈당</th><th>최고</th><th>최저</th><th>목표 범위 70~180</th><th>저혈당 &lt;70</th><th>고혈당 &gt;180</th></tr>';
-            for (const mode of ['none', 'light', 'injection']) {
-                const s = summarize(results[mode]);
-                html += `<tr><td style="color:${COLORS[mode]};font-weight:bold">${names[mode]}</td>
-                    <td>${s.mean.toFixed(0)}</td><td>${s.max.toFixed(0)}</td><td>${s.min.toFixed(0)}</td>
-                    <td>${s.tir.toFixed(0)}%</td><td>${s.tbr.toFixed(0)}%</td><td>${s.tar.toFixed(0)}%</td></tr>`;
-            }
-            document.getElementById('summary').innerHTML = html;
-        }
+let chG, chI, chC;
+function initCharts() {
+  chG = new Chart(document.getElementById('cG'), {
+    type:'line', data:{labels:LABELS, datasets:[]},
+    options:{...baseOpts('혈당 (mg/dL)'), normalBand:true,
+      plugins:{legend:{display:true, position:'bottom', labels:{boxWidth:18, font:{size:11}}},
+               tooltip:{callbacks:{title:it=>it[0].label+'분'}}}}
+  });
+  chI = new Chart(document.getElementById('cI'), {
+    type:'line', data:{labels:LABELS, datasets:[]}, options:baseOpts('μU/mL', 90)
+  });
+  const cOpts = baseOpts('cAMP (상대값)', 90);
+  cOpts.scales.y = {min:0, max:1, title:{display:true, text:'cAMP (상대값)'}};
+  chC = new Chart(document.getElementById('cC'), {
+    type:'line', data:{labels:LABELS, datasets:[]}, options:cOpts
+  });
+}
 
-        window.addEventListener('resize', run);
-        run();
-    </script>
+function render() {
+  syncLightMode();
+
+  const ctrl = simulate('control', 1);
+  const inj  = simulate('injection', 1);
+  // 동시 표시를 끄면 대표값 하나만 그린다 (켜져 있는 시나리오 중에서 고른다)
+  let act = SCEN.filter(s => s.on);
+  if (!overlay) act = [act.find(s => s.f === 3.5) || act[0]];
+  const lights = act.map(s => ({s, r: simulate('light', s.f)}));
+
+  /* ── 메인 그래프 ── */
+  const ds = [
+    {label:'대조군 (식사만)', data:ctrl.G, borderColor:'#8c9aa8', borderDash:[6,4]},
+    {label:'인슐린 주사',     data:inj.G,  borderColor:'#e07b39'},
+  ];
+
+  // f가 작을수록 인슐린이 적게 나와 혈당이 높다. 오름차순으로 넣어야 범례가 읽기 쉽다.
+  const sorted = [...lights].sort((a, b) => a.s.f - b.s.f);
+  const iFirst = ds.length;
+  sorted.forEach((l, j) => {
+    const last = j === sorted.length - 1;
+    ds.push({
+      label:`광유전학 f=${l.s.f.toFixed(1)} (${l.s.nm})`, data:l.r.G,
+      borderColor:l.s.color,
+      borderWidth: l.s.f === 3.5 ? 2.5 : 1.8,
+      // 상한~하한 사이를 반투명 밴드로 칠해 불확실성 범위를 시각화
+      fill: (overlay && showBand && last && sorted.length > 1) ? iFirst : false,
+      backgroundColor:'rgba(123,79,168,.16)'
+    });
+  });
+  chG.data.datasets = ds;
+  chG.update();
+
+  /* ── 보조 그래프 ── */
+  const main = lights.find(l => l.s.f === 3.5) || lights[0];
+  chI.data.datasets = [
+    {label:'대조군', data:ctrl.I, borderColor:'#8c9aa8', borderDash:[6,4]},
+    {label:'주사',   data:inj.I,  borderColor:'#e07b39'},
+    ...(main ? [{label:'광유전학', data:main.r.I, borderColor:'#7b4fa8'}] : [])
+  ];
+  chI.update();
+  chC.data.datasets = main
+    ? [{label:'cAMP', data:main.r.cAMP, borderColor:'#2a8fb8', fill:true, backgroundColor:'rgba(42,143,184,.15)'}]
+    : [];
+  chC.update();
+
+  /* ── 요약표 ── */
+  const stat = a => {
+    const peak = Math.max(...a), low = Math.min(...a);
+    const tir = 100 * a.filter(g => g >= 70 && g <= 180).length / a.length;
+    const hypo = a.filter(g => g < 70).length;
+    return {peak, low, tir, hypo};
+  };
+  const rows = [
+    ['대조군 (식사만)', '#8c9aa8', stat(ctrl.G)],
+    ['인슐린 주사', '#e07b39', stat(inj.G)],
+    ...lights.map(l => [`광유전학 f=${l.s.f.toFixed(1)} · ${l.s.nm}`, l.s.color, stat(l.r.G)])
+  ];
+  document.getElementById('tbl').innerHTML =
+    '<tr><th>방식</th><th>최고 혈당</th><th>최저 혈당</th><th>정상 범위 체류</th><th>저혈당 시간</th></tr>' +
+    rows.map(([n,c,s]) =>
+      `<tr><td class="nm" style="color:${c}">${n}</td><td>${s.peak.toFixed(0)}</td>
+       <td>${s.low.toFixed(0)}</td><td>${s.tir.toFixed(0)}%</td><td>${s.hypo}분</td></tr>`).join('');
+
+  const pot = (AG * P.carbs * 1000 / (V * P.W)).toFixed(0);
+  document.getElementById('vwarn').innerHTML =
+    `<b>혈당 값이 임상보다 높게 나오는 이유</b> — 사양서의 V = 0.9 dL/kg는 흔히 쓰이는 값(약 1.6 dL/kg)보다 작아
+     식사 1회가 올릴 수 있는 혈당 총량이 커집니다. 지금 설정에서는 탄수화물 ${P.carbs} g이
+     최대 ${pot} mg/dL까지 올릴 수 있는 양입니다. 사양서 지시대로 V를 바꾸지 않았고,
+     이 값은 세 곡선에 똑같이 적용되므로 <b>방식 간 비교에는 영향이 없습니다</b>.`;
+}
+
+/* ── 시나리오 버튼 ── */
+document.querySelectorAll('.scen .btn').forEach((b, i) => {
+  b.addEventListener('click', () => {
+    if (SCEN[i].on && SCEN.filter(s => s.on).length === 1) return;  // 최소 1개 유지
+    SCEN[i].on = !SCEN[i].on;
+    b.classList.toggle('on', SCEN[i].on);
+    render();
+  });
+});
+document.getElementById('tgOverlay').addEventListener('click', e => {
+  overlay = !overlay; e.target.classList.toggle('on', overlay); render();
+});
+document.getElementById('tgBand').addEventListener('click', e => {
+  showBand = !showBand; e.target.classList.toggle('on', showBand); render();
+});
+document.getElementById('lightMode').addEventListener('change', e => {
+  P.lightMode = e.target.value; render();
+});
+document.getElementById('reset').addEventListener('click', () => {
+  for (const s of SLIDERS) {
+    P[s.k] = s.def;
+    document.getElementById('i-' + s.k).value = s.def;
+    document.getElementById('v-' + s.k).textContent = s.def;
+  }
+  P.lightMode = 'cont';
+  document.getElementById('lightMode').value = 'cont';
+  render();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   단백질 구조 뷰어 — 3Dmol.js로 PDB에서 직접 받아온다
+   ══════════════════════════════════════════════════════════════ */
+const PDBS = [
+  {id:'6EID', nm:'빛을 받는 단백질', cap:'채널로돕신-2 (ChR2) 야생형, X선 2.39 Å — 빛을 받으면 열리는 채널입니다.'},
+  {id:'4INS', nm:'분비되는 호르몬',  cap:'인슐린, X선 1.5 Å — β세포에서 분비되어 혈당을 낮춥니다.'},
+  {id:'6SOF', nm:'작용 지점',        cap:'인슐린 수용체 엑토도메인, cryo-EM — 인슐린이 여기에 붙어 세포에 신호를 보냅니다.'},
+  {id:'5X4U', nm:'참고: 빛 효소 유사체', cap:'OaPAC (bPAC와 57% 동일). bPAC 자체 구조는 PDB에 등록되어 있지 않아 유사체를 봅니다.'},
+];
+let viewer = null;
+
+function showPDB(i) {
+  const p = PDBS[i];
+  document.querySelectorAll('#pdbTabs .btn').forEach((b, j) => b.classList.toggle('on', i === j));
+  document.getElementById('pdbCap').textContent = `${p.id} — ${p.cap}`;
+  const box = document.getElementById('viewer');
+  if (typeof $3Dmol === 'undefined') {
+    box.innerHTML = '<div style="padding:20px;color:#6b7a8c;font-size:13px">' +
+      '3Dmol.js를 불러오지 못했습니다. 인터넷에 연결된 상태에서 열어 주세요.</div>';
+    return;
+  }
+  if (!viewer) viewer = $3Dmol.createViewer(box, {backgroundColor:'white'});
+  viewer.clear();
+  $3Dmol.download('pdb:' + p.id, viewer, {}, () => {
+    viewer.setStyle({}, {cartoon:{color:'spectrum'}});
+    viewer.zoomTo();
+    viewer.render();
+  });
+}
+function buildTabs() {
+  const t = document.getElementById('pdbTabs');
+  PDBS.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (i === 0 ? ' on' : '');
+    b.innerHTML = `${p.nm} <small style="opacity:.7">${p.id}</small>`;
+    b.addEventListener('click', () => showPDB(i));
+    t.appendChild(b);
+  });
+}
+
+/* ── 시작 ── */
+buildSliders();
+initCharts();
+render();
+buildTabs();
+window.addEventListener('load', () => showPDB(0));
+</script>
 </body>
 </html>
