@@ -66,6 +66,21 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
 .refs{font-size:12px;color:var(--muted);line-height:1.7;margin:0;padding-left:18px}
 .refs li{margin-bottom:3px}
 .warn{background:#fdf4e6;border:1px solid #f0d9b0;border-radius:6px;padding:9px 11px;font-size:12px;margin-top:8px}
+.notice{background:#eaf2fb;border:1px solid #c2d8f0;border-left:4px solid #3f7fc1;border-radius:6px;
+        padding:10px 13px;font-size:12.5px;margin-top:10px;max-width:1400px}
+.interp{background:#f3eefa;border:1px solid #d9cdeb;border-radius:8px;padding:11px 14px;font-size:13px;margin-top:12px}
+.interp h4{margin:0 0 6px;font-size:13px;color:var(--opt)}
+.interp ul{margin:0;padding-left:18px}
+.interp li{margin-bottom:4px}
+.interp b{color:var(--opt)}
+.mech{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.mech>div{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px}
+.mech .on{border-color:var(--opt);background:#f7f3fc}
+.mech h4{margin:0 0 5px;font-size:13px}
+.mech .chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:9px;margin-left:5px;vertical-align:middle}
+.chip-use{background:var(--opt);color:#fff}
+.chip-alt{background:#e3e8ee;color:#51606f}
+@media(max-width:700px){.mech{grid-template-columns:1fr}}
 .full{grid-column:1/-1}
 @media(max-width:1200px){.wrap{grid-template-columns:1fr}}
 </style>
@@ -75,6 +90,14 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
 <header>
   <h1>광유전학 1형 당뇨 시뮬레이터</h1>
   <p class="lede">빛 자극으로 인슐린을 분비시키는 방식과 피하 인슐린 주사 방식의 혈당 곡선을 같은 조건에서 비교합니다. Δt = 1분, 전진 오일러법, 0~360분.</p>
+  <div class="notice">
+    <b>이 시뮬레이터는 교육용 모델입니다.</b>
+    광유전학과 인슐린 주사의 혈당 조절 <b>원리를 비교</b>하기 위해 만든 수학적 모델이며,
+    실제 환자의 혈당 변화나 치료 효과를 예측하는 프로그램이 아닙니다.
+    그래프에서 광유전학이 주사보다 효과적으로 보이더라도 실제 환자에게 같은 결과가 나타난다고 판단할 수 없습니다.
+    계산 결과는 설정한 수학적 조건과 가정값에 따라 달라집니다.
+    <b>인슐린 주사는 임상에서 검증된 표준 치료법이지만, 광유전학을 이용한 인슐린 분비 조절은 아직 세포·동물 수준의 연구 단계입니다.</b>
+  </div>
 </header>
 
 <div class="wrap">
@@ -101,6 +124,18 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
     <h3>환자 설정</h3>
     <div id="g-pat"></div>
 
+    <h3>자가면역 설정 <span class="info" data-tip="1형 당뇨는 면역세포가 자기 췌장 β세포를 공격하는 자가면역질환입니다. 아래 감소율은 실제 환자 수치가 아니라 가상으로 설정한 값입니다.">i</span></h3>
+    <div class="sl">
+      <div class="top"><span class="nm">면역 공격 강도</span></div>
+      <select id="immune">
+        <option value="none">없음 (β세포 유지)</option>
+        <option value="weak">약함</option>
+        <option value="strong">강함</option>
+      </select>
+      <div class="src">가상값 — 실제 환자 수치 아님</div>
+    </div>
+    <div id="g-imm"></div>
+
     <h3>식사 설정</h3>
     <div id="g-meal"></div>
 
@@ -126,6 +161,7 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
         </span>
       </div>
       <div class="chartbox"><canvas id="cG" class="chart"></canvas></div>
+      <div class="interp" id="interp"></div>
     </div>
 
     <div class="card" style="margin-top:16px">
@@ -146,14 +182,40 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
       <div class="chartbox sm"><canvas id="cC" class="chart"></canvas></div>
       <div class="vcap">빛이 켜지면 bPAC가 cAMP를 만들고, 빛을 꺼도 τ=23초에 걸쳐 서서히 줄어듭니다.</div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <h2>기능성 β세포 비율</h2>
+      <div class="chartbox sm"><canvas id="cB" class="chart"></canvas></div>
+      <div class="vcap">면역세포의 공격으로 β세포가 줄면 빛을 쪼여도 인슐린이 덜 나옵니다.
+        주사 인슐린은 세포와 무관하므로 영향을 받지 않습니다.
+        <b>감소율은 실제 환자 수치가 아닌 가상값</b>입니다.</div>
+    </div>
   </div>
 
   <!-- ─────────── 아래: 단백질 뷰어 ─────────── -->
   <div class="card full">
-    <h2>단백질 구조 뷰어</h2>
+    <h2>광유전학 단백질과 작동 원리</h2>
+
+    <div class="mech">
+      <div class="on">
+        <h4>bPAC <span class="chip chip-use">이 시뮬레이터가 쓰는 방식</span></h4>
+        빛 → <b>bPAC 활성화</b> → <b>cAMP 증가</b> → <b>포도당 자극에 의한 인슐린 분비 증폭</b><br>
+        빛 자체가 분비를 일으키는 것이 아니라, 포도당이 이미 분비를 자극하고 있을 때 그 분비를
+        <b>증폭</b>합니다. 계산식의 f<sub>max</sub>(분비 배수)와 G/(G+150)(포도당 의존성)이 이 원리를 나타냅니다.
+        <br><small style="color:var(--muted)">bPAC = Beggiatoa 광활성화 아데닐산 고리화효소 · Stierl 2011</small>
+      </div>
+      <div>
+        <h4>ChR2 <span class="chip chip-alt">다른 방식 (참고)</span></h4>
+        빛 → <b>양이온 통로 개방</b> → <b>막 탈분극 및 Ca²⁺ 신호 변화</b> → <b>인슐린 분비 촉진</b><br>
+        통로를 열어 전기적으로 세포를 흥분시키는 방식이라 작동 원리가 bPAC와 다릅니다.
+        <b>이 시뮬레이터의 계산식에는 쓰이지 않습니다.</b> Reinbothe 2014의 f<sub>max</sub>=5.0 시나리오만
+        ChR2 실험에서 나온 값입니다.
+        <br><small style="color:var(--muted)">ChR2 = 채널로돕신-2 · Williams arXiv:1304.5635</small>
+      </div>
+    </div>
+
     <div class="tabs" id="pdbTabs"></div>
     <div id="viewer"></div>
-    <div class="flow">빛이 <b>ChR2</b>를 열면 → <b>인슐린</b>이 나와서 → <b>인슐린 수용체</b>에 붙는다.</div>
+    <div class="flow">이 모델: 빛이 <b>bPAC</b>를 켜면 → cAMP가 늘어 <b>인슐린</b> 분비가 증폭되고 → <b>인슐린 수용체</b>에 붙는다.</div>
     <div class="vcap" id="pdbCap"></div>
   </div>
 
@@ -166,7 +228,9 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
       <ol class="refs" style="color:var(--text)">
         <li><b>식사 포도당 흡수 (두 방식 공통)</b> — dRa1/dt = −(Ra1 − AG·uCHO)/tmaxG, dRa/dt = −(Ra − Ra1)/tmaxG</li>
         <li><b>A. 광유전학</b> — A = L/(L + K<sub>0.5</sub>), d[cAMP]/dt = (A·cAMP<sub>max</sub> − [cAMP])/τ<sub>cAMP</sub>,
-            ISR = ISR<sub>base</sub>·(1 + (f<sub>max</sub>−1)·[cAMP]/cAMP<sub>max</sub>)·G/(G + 150)</li>
+            ISR = ISR<sub>base</sub>·(1 + (f<sub>max</sub>−1)·[cAMP]/cAMP<sub>max</sub>)·G/(G + 150)·<b>β(t)</b>
+            <br><span style="color:var(--muted)">A는 bPAC 활성도입니다. β(t) = β₀·e<sup>−kt</sup>는 자가면역으로 남은 기능성 β세포 비율이며
+            <b>가상값</b>입니다. 주사 경로에는 곱하지 않습니다.</span></li>
         <li><b>B. 주사</b> — dS1/dt = u − S1/tmaxI, dS2/dt = (S1 − S2)/tmaxI, dI/dt = S2/(VI·tmaxI) − ke·I</li>
         <li><b>인슐린 작용 지연 (공통)</b> — dX/dt = −p2·X + p2·S<sub>I</sub>·I</li>
         <li><b>혈당 갱신 (공통)</b> — dG/dt = −(SG + X)·G + SG·Gb + Ra/(V·체중)</li>
@@ -210,6 +274,16 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
         <li><b>cAMP<sub>max</sub> = 1</b> — ISR 식에 [cAMP]/cAMP<sub>max</sub> 비율로만 들어가므로 상대값 1로 두었습니다. 그래프의 cAMP는 0~1 상대값입니다.</li>
         <li><b>기저 인슐린 처리</b> — 대조군과 주사 방식은 ub를 피하 경로로 계속 받고, 광유전학은 ub 대신 빛을 받는 세포가 분비를 담당합니다. 대조군은 "기저 인슐린만, 식사 보정 없음"입니다.</li>
         <li><b>cAMP는 1초 간격으로 계산</b> — τ<sub>cAMP</sub> = 23초라 1분 간격 오일러법은 발산합니다(Δt/τ = 2.6). 빛과 cAMP만 1초 간격 내부 루프로 계산하고 그 분의 평균을 ISR에 넣습니다. ON/OFF 시간이 초 단위이므로 이 방식이 점등 주기도 정확히 반영합니다. 혈당·인슐린 본체는 사양서대로 1분 간격입니다.</li>
+        <li><b>자가면역에 의한 β세포 감소 — 전부 가상값</b> — 면역 공격 강도(없음 / 약함 k=0.0008 / 강함 k=0.0025)와
+            β(t) = β₀·e<sup>−kt</sup> 식은 <b>논문에서 가져온 값이 아니라 이 탐구를 위해 임의로 정한 가상값</b>입니다.
+            실제 β세포 파괴는 수개월~수년에 걸쳐 일어나지만, 6시간 창에서 눈에 보이도록 시간을 압축했습니다.
+            빛에 의한 분비 ISR에만 β(t)를 곱하고 주사 인슐린에는 곱하지 않았는데, 주사한 인슐린은
+            살아 있는 세포가 없어도 작용하기 때문입니다. 이 차이가 광유전학이 자가면역 자체를
+            해결하지 못한다는 한계를 보여줍니다.</li>
+        <li><b>β₀가 100% 미만이면 출발점이 달라집니다</b> — ISR<sub>base</sub>는 β=100%에서 기저 주입률과 같아지도록
+            맞춘 값이라, β₀를 낮추면 광유전학 쪽만 기저 인슐린이 적은 상태로 시작합니다.
+            세포가 적으면 분비도 적다는 뜻이라 의도한 동작이지만, 세 방식의 출발점을 똑같이 두고
+            비교하려면 β₀를 100%로, 면역 공격을 "없음"으로 두세요.</li>
         <li><b>쓰이지 않은 상수</b> — k12, ka1~kb3, EGP0, F01은 Hovorka 모델 상수입니다. 사양서의 계산 순서 1~5단계는 Bergman 계열 식이라 이 상수들을 쓰지 않습니다. 지시대로 코드에 선언하고 출처만 달아두었습니다.</li>
       </ul>
     </details>
@@ -224,7 +298,7 @@ summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
         <li>Liu C, Vehí J, Oliver N, et al. Enhancing Blood Glucose Prediction with Meal Absorption and Physical Exercise Information. arXiv:1901.07467</li>
         <li>Stierl M, et al. Light Modulation of Cellular cAMP by a Small Bacterial Photoactivated Adenylyl Cyclase, bPAC, of the Soil Bacterium <i>Beggiatoa</i>. <i>J Biol Chem</i> 2011;286(2):1181-1188. doi:10.1074/jbc.M110.185496</li>
         <li>Zhang F, Tzanakakis ES. Optogenetic regulation of insulin secretion in pancreatic β-cells. <i>Scientific Reports</i> 2017;7:9357. doi:10.1038/s41598-017-09937-0</li>
-        <li>Chen et al. Light-Mediated Enhancement of Glucose-Stimulated Insulin Release of Optogenetically Engineered Human Pancreatic Beta-Cells. <i>ACS Synth Biol</i> 2024;13(3):825-837. doi:10.1021/acssynbio.3c00628</li>
+        <li>Chen J, Stoukides D, Tzanakakis ES. Light-Mediated Enhancement of Glucose-Stimulated Insulin Release of Optogenetically Engineered Human Pancreatic Beta-Cells. <i>ACS Synth Biol</i> 2024;13(3):825-836. doi:10.1021/acssynbio.3c00653</li>
         <li>Reinbothe TM, et al. Optogenetic control of insulin secretion in intact pancreatic islets with β-cell-specific expression of Channelrhodopsin-2. <i>Islets</i> 2014;6:e28095. doi:10.4161/isl.28095</li>
         <li>Maharwal et al. <i>J Biophotonics</i> 2026. doi:10.1002/jbio.202500232</li>
         <li>Deng X, et al. Optogenetic therapeutic strategies for diabetes mellitus. <i>Journal of Diabetes</i> 2024;16(6):e13557. doi:10.1111/1753-0407.13557</li>
@@ -272,6 +346,20 @@ const TAU_OFF_CHR2_MS = 11;
 /* Chen et al. 2024 — 15 mM에서 분비가 뚜렷했으므로 포도당 반포화 상수를 150 mg/dL로 둔다 */
 const K_G = 150;
 
+/* ──────────────────────────────────────────────────────────
+   자가면역에 의한 β세포 감소 — 전부 가상값 (실제 환자 수치 아님)
+   1형 당뇨는 면역세포가 자기 β세포를 공격하는 자가면역질환이다.
+   빛은 살아남은 세포에만 작용하므로, 세포가 줄면 빛을 쪼여도 분비량이 줄어든다.
+   실제 β세포 파괴는 수개월~수년에 걸쳐 일어나지만, 6시간 창에서 눈에 보이도록
+   시간을 압축한 가상 감소율을 쓴다. 논문에서 가져온 값이 아니다.
+   beta(t) = beta0 * exp(-k * t)
+   ────────────────────────────────────────────────────────── */
+const IMMUNE_K = {
+  none:   0,        // 공격 없음 — β세포 유지
+  weak:   0.0008,   // 약함 — 6시간에 약 75%로 감소
+  strong: 0.0025,   // 강함 — 6시간에 약 40%로 감소
+};
+
 const CAMP_MAX = 1.0;   // 상대값. ISR 식에 비율로만 들어간다.
 const T_END = 360;      // min
 const DT = 1;           // min, 전진 오일러법
@@ -308,13 +396,16 @@ const SLIDERS = [
   {g:'pat',  k:'G0',         nm:'초기 혈당',      min:80,max:300,step:5, def:180,u:'mg/dL',
    src:'식전 고혈당 가정', tip:'식전 고혈당 상태를 가정한 범위'},
 
+  {g:'imm',  k:'beta0',      nm:'초기 기능성 β세포 비율',min:10,max:100,step:5,def:100,u:'%',
+   src:'가상값 — 실제 환자 수치 아님', tip:'인슐린을 만들 수 있는 β세포가 처음에 얼마나 남아 있는지입니다. 100%면 빛을 받는 세포가 온전한 상태, 낮을수록 이미 많이 파괴된 상태입니다. 실제 환자 수치가 아닌 가상값입니다.'},
+
   {g:'meal', k:'carbs',      nm:'탄수화물 섭취량',min:0,max:100,step:5,  def:60, u:'g',
    src:'Zhang/Liu 계열 표준 식사', tip:'Zhang/Liu 계열 연구의 표준 식사 60 g'},
   {g:'meal', k:'mealTime',   nm:'섭취 시각',      min:0,max:180,step:5,  def:0,  u:'분',
    src:'가정', tip:'사양서에 없는 화면 조작용 값입니다.'},
 ];
 
-const P = {lightMode:'cont'};
+const P = {lightMode:'cont', immune:'none'};
 SLIDERS.forEach(s => P[s.k] = s.def);
 
 /* 시나리오 — 인슐린 분비 배수 f_max */
@@ -344,7 +435,10 @@ function simulate(mode, fmax) {
   let S1 = ub * tmaxI, S2 = ub * tmaxI;         // 피하 구획 정상상태
   let cAMP = DARK_RATIO * CAMP_MAX;
 
-  const out = {G:[], I:[], cAMP:[]};
+  const kImm = IMMUNE_K[P.immune] ?? 0;
+  const beta0 = P.beta0 / 100;
+
+  const out = {G:[], I:[], cAMP:[], beta:[]};
 
   for (let t = 0; t <= T_END; t++) {
     // ── 빛 → cAMP : 1초 간격 내부 루프
@@ -372,12 +466,17 @@ function simulate(mode, fmax) {
     }
     const cAvg = cSum / SUB;
 
+    // ── 자가면역에 의한 기능성 β세포 비율 (가상값)
+    const beta = beta0 * Math.exp(-kImm * t);
+
     // ── 2-A단계: 광유전학 인슐린 분비. 마지막 항이 포도당 의존성(저혈당 안전장치)
+    // beta를 곱하는 이유: 빛은 살아남은 β세포에만 작용하므로 세포가 줄면 분비도 준다.
+    // 주사 인슐린은 세포와 무관하게 들어가므로 beta를 곱하지 않는다. 이 차이가 광유전학의 한계다.
     const ISR = mode === 'light'
-      ? ISRbase * (1 + (fmax - 1) * cAvg / CAMP_MAX) * G / (G + K_G)
+      ? ISRbase * (1 + (fmax - 1) * cAvg / CAMP_MAX) * G / (G + K_G) * beta
       : 0;
 
-    out.G.push(G); out.I.push(I); out.cAMP.push(cAvg);
+    out.G.push(G); out.I.push(I); out.cAMP.push(cAvg); out.beta.push(beta);
 
     // ── 1단계: 식사로 들어오는 포도당 (2구획)
     const uCHO = (t === P.mealTime) ? P.carbs * 1000 : 0;   // g -> mg/min
@@ -476,7 +575,7 @@ const baseOpts = (yTitle, step = 30) => ({
   plugins:{legend:{display:false}, tooltip:{callbacks:{title:it=>it[0].label+'분'}}}
 });
 
-let chG, chI, chC;
+let chG, chI, chC, chB;
 function initCharts() {
   chG = new Chart(document.getElementById('cG'), {
     type:'line', data:{labels:LABELS, datasets:[]},
@@ -491,6 +590,11 @@ function initCharts() {
   cOpts.scales.y = {min:0, max:1, title:{display:true, text:'cAMP (상대값)'}};
   chC = new Chart(document.getElementById('cC'), {
     type:'line', data:{labels:LABELS, datasets:[]}, options:cOpts
+  });
+  const bOpts = baseOpts('β세포 (%)', 90);
+  bOpts.scales.y = {min:0, max:100, title:{display:true, text:'β세포 (%)'}};
+  chB = new Chart(document.getElementById('cB'), {
+    type:'line', data:{labels:LABELS, datasets:[]}, options:bOpts
   });
 }
 
@@ -539,6 +643,11 @@ function render() {
     ? [{label:'cAMP', data:main.r.cAMP, borderColor:'#2a8fb8', fill:true, backgroundColor:'rgba(42,143,184,.15)'}]
     : [];
   chC.update();
+  chB.data.datasets = main
+    ? [{label:'기능성 β세포', data:main.r.beta.map(v => v * 100), borderColor:'#c0392b',
+        fill:true, backgroundColor:'rgba(192,57,43,.13)'}]
+    : [];
+  chB.update();
 
   /* ── 요약표 ── */
   const stat = a => {
@@ -558,12 +667,91 @@ function render() {
       `<tr><td class="nm" style="color:${c}">${n}</td><td>${s.peak.toFixed(0)}</td>
        <td>${s.low.toFixed(0)}</td><td>${s.tir.toFixed(0)}%</td><td>${s.hypo}분</td></tr>`).join('');
 
+  buildInterp(ctrl, inj, main);
+
   const pot = (AG * P.carbs * 1000 / (V * P.W)).toFixed(0);
   document.getElementById('vwarn').innerHTML =
     `<b>혈당 값이 임상보다 높게 나오는 이유</b> — 사양서의 V = 0.9 dL/kg는 흔히 쓰이는 값(약 1.6 dL/kg)보다 작아
      식사 1회가 올릴 수 있는 혈당 총량이 커집니다. 지금 설정에서는 탄수화물 ${P.carbs} g이
      최대 ${pot} mg/dL까지 올릴 수 있는 양입니다. 사양서 지시대로 V를 바꾸지 않았고,
      이 값은 세 곡선에 똑같이 적용되므로 <b>방식 간 비교에는 영향이 없습니다</b>.`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   결과 해석 — 지금 설정에서 왜 이런 그래프가 나왔는지 설명한다
+   ══════════════════════════════════════════════════════════════ */
+function buildInterp(ctrl, inj, main) {
+  const box = document.getElementById('interp');
+  if (!main) { box.innerHTML = ''; return; }
+
+  const pk = a => Math.max(...a);
+  const pC = pk(ctrl.G), pI = pk(inj.G), pL = pk(main.r.G);
+  const dropL = pC - pL, dropI = pC - pI;
+
+  // 세포 표면에 실제로 닿는 빛의 세기와 그때의 bPAC 활성도 A
+  const Lcell = P.intensity * 10 * (P.trans / 100);
+  const A = DARK_RATIO + (1 - DARK_RATIO) * Lcell / (Lcell + K_HALF);
+  const cMax = pk(main.r.cAMP);
+  const amp = 1 + (main.s.f - 1) * cMax;          // 분비가 기저의 몇 배가 되었는지
+  const betaEnd = main.r.beta[main.r.beta.length - 1] * 100;
+  const betaStart = main.r.beta[0] * 100;
+
+  const li = [];
+
+  // 1) 빛 → bPAC → cAMP → 분비 증폭 사슬
+  if (P.lightTotal > 0 && P.intensity > 0) {
+    li.push(`<b>빛 → bPAC → cAMP → 인슐린</b> — 광 세기 ${P.intensity} mW/cm²가 조직을 통과하면
+      세포 표면에서 ${Lcell.toFixed(1)} μW/mm²가 되고, 이때 bPAC 활성도 A는 <b>${A.toFixed(2)}</b>입니다
+      (A = L/(L + K₀.₅), K₀.₅ = 3.7). 그 결과 cAMP가 최대 <b>${cMax.toFixed(2)}</b>까지 쌓여
+      인슐린 분비가 기저의 <b>${amp.toFixed(2)}배</b>로 늘었습니다.`);
+  } else {
+    li.push(`<b>빛을 쪼이지 않은 상태입니다.</b> 광 세기나 총 조사 시간이 0이라 bPAC가 활성화되지 않고,
+      cAMP가 어둠 상태(1/300)에 머물러 인슐린 분비가 증폭되지 않습니다. 광 세기나 총 조사 시간을 올려 보세요.`);
+  }
+
+  // 2) 혈당 결과 비교
+  li.push(`<b>혈당 결과</b> — 최고 혈당이 대조군 ${pC.toFixed(0)}에서
+    광유전학은 <b>${pL.toFixed(0)} mg/dL</b>(${dropL >= 0 ? dropL.toFixed(0) + ' 낮음' : Math.abs(dropL).toFixed(0) + ' 높음'}),
+    주사는 <b>${pI.toFixed(0)} mg/dL</b>(${dropI.toFixed(0)} 낮음)이 되었습니다.
+    인슐린이 늘면 X(인슐린 작용)가 커지고, 혈당식의 −(SG + X)·G 항이 커져 혈당이 더 빨리 떨어집니다.`);
+
+  // 광유전학이 대조군보다 나빠진 경우 — 왜 그런지 설명해 준다
+  if (pL > pC) {
+    li.push(`<b>광유전학이 대조군보다 나쁜 이유</b> — 대조군은 기저 인슐린(펌프)을 계속 받지만,
+      광유전학은 그 기저량까지 β세포가 담당합니다. 지금처럼 β세포가
+      ${betaStart.toFixed(0)}%로 줄어 있으면 빛으로 증폭해도 기저량조차 채우지 못해
+      대조군보다 혈당이 높아집니다. <b>세포가 사라지면 빛을 쪼일 대상 자체가 없다</b>는 뜻이고,
+      이것이 광유전학이 자가면역을 해결하지 못할 때 생기는 가장 큰 문제입니다.`);
+  }
+
+  // 3) 자가면역 — 광유전학의 한계
+  if (P.immune !== 'none' || P.beta0 < 100) {
+    li.push(`<b>자가면역의 영향</b> — 기능성 β세포가 ${betaStart.toFixed(0)}%에서
+      ${betaEnd.toFixed(0)}%로 줄었습니다. 빛은 살아남은 세포에만 작용하므로 분비량이 그만큼 깎이지만,
+      <b>주사 인슐린은 세포와 무관하게 들어가므로 영향을 받지 않습니다.</b>
+      광유전학이 인슐린 분비를 조절하는 데는 도움이 되어도
+      <b>자가면역 반응 자체를 해결하지는 못한다</b>는 한계가 여기서 드러납니다.
+      (감소율은 실제 환자 수치가 아닌 가상값입니다.)`);
+  } else {
+    li.push(`<b>자가면역은 꺼져 있습니다.</b> β세포가 ${betaStart.toFixed(0)}%로 유지되는 상태입니다.
+      왼쪽 "자가면역 설정"에서 공격 강도를 약함·강함으로 바꾸면,
+      β세포가 줄 때 광유전학만 효과가 떨어지고 주사는 그대로인 것을 볼 수 있습니다.`);
+  }
+
+  // 4) 저혈당 안전장치
+  const minL = Math.min(...main.r.G), minI = Math.min(...inj.G);
+  li.push(`<b>저혈당 안전장치</b> — 분비식의 G/(G + 150) 항 때문에 혈당이 낮아지면 빛을 계속 켜도
+    분비가 줄어듭니다. 지금 최저 혈당은 광유전학 ${minL.toFixed(0)}, 주사 ${minI.toFixed(0)} mg/dL입니다.
+    주사는 한 번 넣으면 되돌릴 수 없지만, 광유전학은 혈당을 따라 분비가 조절된다는 점이 다릅니다.`);
+
+  // 5) 타이밍
+  if (P.lightTotal > 0 && P.lightStart + P.lightTotal < 40) {
+    li.push(`<b>참고</b> — 식사 포도당은 약 40분 뒤에 가장 많이 들어오는데
+      (tmaxG = 40분) 조사가 ${P.lightStart + P.lightTotal}분에 끝납니다.
+      총 조사 시간을 늘리면 혈당이 오르는 구간을 더 덮을 수 있습니다.`);
+  }
+
+  box.innerHTML = `<h4>이 그래프가 왜 이렇게 나왔나</h4><ul>${li.map(s => `<li>${s}</li>`).join('')}</ul>`;
 }
 
 /* ── 시나리오 버튼 ── */
@@ -584,6 +772,9 @@ document.getElementById('tgBand').addEventListener('click', e => {
 document.getElementById('lightMode').addEventListener('change', e => {
   P.lightMode = e.target.value; render();
 });
+document.getElementById('immune').addEventListener('change', e => {
+  P.immune = e.target.value; render();
+});
 document.getElementById('reset').addEventListener('click', () => {
   for (const s of SLIDERS) {
     P[s.k] = s.def;
@@ -592,17 +783,20 @@ document.getElementById('reset').addEventListener('click', () => {
   }
   P.lightMode = 'cont';
   document.getElementById('lightMode').value = 'cont';
+  P.immune = 'none';
+  document.getElementById('immune').value = 'none';
   render();
 });
 
 /* ══════════════════════════════════════════════════════════════
    단백질 구조 뷰어 — 3Dmol.js로 PDB에서 직접 받아온다
    ══════════════════════════════════════════════════════════════ */
+// 계산식이 bPAC 기반이므로 bPAC 유사체를 맨 앞에 둔다. ChR2는 다른 방식이라 참고 탭으로 분리.
 const PDBS = [
-  {id:'6EID', nm:'빛을 받는 단백질', cap:'채널로돕신-2 (ChR2) 야생형, X선 2.39 Å — 빛을 받으면 열리는 채널입니다.'},
+  {id:'5X4U', nm:'빛을 받는 효소 (이 모델)', cap:'OaPAC — 빛을 받아 cAMP를 만드는 광활성화 아데닐산 고리화효소입니다. bPAC와 57% 동일하며, bPAC 자체 구조는 PDB에 등록되어 있지 않아 유사체를 봅니다. 이 시뮬레이터의 계산식이 쓰는 단백질입니다.'},
   {id:'4INS', nm:'분비되는 호르몬',  cap:'인슐린, X선 1.5 Å — β세포에서 분비되어 혈당을 낮춥니다.'},
   {id:'6SOF', nm:'작용 지점',        cap:'인슐린 수용체 엑토도메인, cryo-EM — 인슐린이 여기에 붙어 세포에 신호를 보냅니다.'},
-  {id:'5X4U', nm:'참고: 빛 효소 유사체', cap:'OaPAC (bPAC와 57% 동일). bPAC 자체 구조는 PDB에 등록되어 있지 않아 유사체를 봅니다.'},
+  {id:'6EID', nm:'참고: ChR2 (다른 방식)', cap:'채널로돕신-2 (ChR2) 야생형, X선 2.39 Å — 빛을 받으면 열리는 양이온 통로입니다. 막 탈분극과 Ca²⁺ 신호로 분비를 촉진하는 방식이라 bPAC와 원리가 다르고, 이 시뮬레이터의 계산식에는 쓰이지 않습니다.'},
 ];
 let viewer = null;
 
